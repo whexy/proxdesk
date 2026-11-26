@@ -10,6 +10,9 @@ updates:
     ignore:
       # Pinned to the Playwright driver in nixpkgs; update both together.
       - dependency-name: "@playwright/test"
+      # Typed for the Node.js major the project runs on; see the node image below.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: chore
       include: scope
@@ -33,5 +36,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # The Node.js major is shared by the image, CI, the Nix package, esbuild's
+      # target and package.json engines; move them together by hand.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: build
