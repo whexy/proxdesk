@@ -1,0 +1,48 @@
+[Unit]
+Description=Proxdesk VM self-service portal
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=proxdesk
+Group=proxdesk
+WorkingDirectory=/var/lib/proxdesk
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+EnvironmentFile=/etc/proxdesk/proxdesk.env
+# Each secret is a root-only file passed in as a credential. Add a pair of
+# lines for each further secret, such as Slack or Discord tokens.
+LoadCredential=proxmox-token-secret:/etc/proxdesk/credentials/proxmox-token-secret
+Environment=PROXMOX_TOKEN_SECRET_FILE=%d/proxmox-token-secret
+#LoadCredential=slack-app-token:/etc/proxdesk/credentials/slack-app-token
+#Environment=SLACK_APP_TOKEN_FILE=%d/slack-app-token
+#LoadCredential=slack-bot-token:/etc/proxdesk/credentials/slack-bot-token
+#Environment=SLACK_BOT_TOKEN_FILE=%d/slack-bot-token
+#LoadCredential=discord-bot-token:/etc/proxdesk/credentials/discord-bot-token
+#Environment=DISCORD_BOT_TOKEN_FILE=%d/discord-bot-token
+#LoadCredential=oidc-client-secret:/etc/proxdesk/credentials/oidc-client-secret
+#Environment=OIDC_CLIENT_SECRET_FILE=%d/oidc-client-secret
+ExecStart=/nix/var/nix/profiles/proxdesk/bin/proxdesk serve
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15s
+StateDirectory=proxdesk
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 # Install
 
-Proxdesk is one server process with one SQLite database. This page installs it from the container image. To install it another way, see [NixOS](#nixos) or [Release tarball with systemd](#release-tarball-with-systemd) further down; [Sign in](#sign-in) and the steps after it apply to every way.
+Proxdesk is one server process with one SQLite database. This page installs it from the container image. To install it another way, see [NixOS](#nixos), [Nix on another Linux](#nix-on-another-linux), or [Release tarball with systemd](#release-tarball-with-systemd) further down; [Sign in](#sign-in) and the steps after it apply to every way.
 
 Before you start, you need:
 
@@ -102,6 +102,45 @@ sudo proxdesk doctor
 ```
 
 The service restarts on failure, so it starts once the administrator exists. Then [sign in](#sign-in).
+
+## Nix on another Linux
+
+On a distribution with Nix but without NixOS, such as a Proxmox host, install the package into a system profile and run it with the unit it ships. As root, build the release you want into the profile:
+
+```sh
+nix build --profile /nix/var/nix/profiles/proxdesk github:whexy/proxdesk/v0.1.0
+```
+
+Create the service user, the configuration, and one root-only file per secret:
+
+```sh
+useradd --system --home-dir /var/lib/proxdesk --no-create-home --shell /usr/sbin/nologin proxdesk
+install -d -m 0700 /etc/proxdesk/credentials
+printf '%s' 'your-token-secret' > /etc/proxdesk/credentials/proxmox-token-secret
+chmod 0600 /etc/proxdesk/credentials/proxmox-token-secret
+```
+
+In `/etc/proxdesk/proxdesk.env`, set `DATABASE_PATH=/var/lib/proxdesk/proxdesk.sqlite`, `HOST=127.0.0.1` if the reverse proxy runs on the same host, and the values from step 2 of [Container](#container) except `PROXMOX_TOKEN_SECRET`, which the unit passes from its file.
+
+Install the unit and the root `proxdesk` command from the profile:
+
+```sh
+cp /nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk.service /etc/systemd/system/
+install -m 0755 /nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk-admin /usr/local/sbin/proxdesk
+```
+
+The unit loads each secret file as a credential. For Slack, Discord, or SSO, put each token in its own file under `/etc/proxdesk/credentials` and uncomment its two lines in `/etc/systemd/system/proxdesk.service`. The `proxdesk` command reads the installed unit, so it always runs with the same configuration and credentials as the service.
+
+Create the administrator, start the service, and check it:
+
+```sh
+proxdesk create-admin --email admin@example.com
+systemctl daemon-reload
+systemctl enable --now proxdesk.service
+proxdesk doctor
+```
+
+Then [sign in](#sign-in).
 
 ## Release tarball with systemd
 
