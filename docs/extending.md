@@ -6,11 +6,11 @@ An extension is a JavaScript module that adds chat commands or chat platforms. P
 
 ## How the chat layer fits together
 
-The code lives in [lib/chat/](../lib/chat/).
+The code lives in [lib/chat/](https://github.com/whexy/proxdesk/tree/main/lib/chat/).
 
 - An **adapter** connects one platform, such as Slack or Discord. It turns platform events into an `IncomingMessage` and sends the bot's replies.
-- The **bot** ([bot.ts](../lib/chat/bot.ts)) checks that the message came from an allowed conversation, parses the command, rate-limits the sender, and looks up the Proxdesk account linked to the sender's chat identity.
-- A **command** ([commands.ts](../lib/chat/commands.ts)) does the work. It builds replies from platform-neutral **messages** ([message.ts](../lib/chat/message.ts)), which each adapter renders in its own markup.
+- The **bot** ([bot.ts](https://github.com/whexy/proxdesk/blob/main/lib/chat/bot.ts)) checks that the message came from an allowed conversation, parses the command, rate-limits the sender, and looks up the Proxdesk account linked to the sender's chat identity.
+- A **command** ([commands.ts](https://github.com/whexy/proxdesk/blob/main/lib/chat/commands.ts)) does the work. It builds replies from platform-neutral **messages** ([message.ts](https://github.com/whexy/proxdesk/blob/main/lib/chat/message.ts)), which each adapter renders in its own markup.
 
 A command acts as the linked account through the same services and permission checks as the web UI. It never sees platform syntax, and an adapter never sees permissions.
 
@@ -43,11 +43,11 @@ export default function (api) { … }
 | `api.log` | `info`, `warn`, and `error`, prefixed with the extension's name. |
 | `api.services` | The same services object commands get as `ctx.services`. |
 
-TypeScript types are in [lib/extensions.ts](../lib/extensions.ts) (`ExtensionApi`) and [lib/chat/commands.ts](../lib/chat/commands.ts) (`ChatCommand`, `CommandContext`).
+TypeScript types are in [lib/extensions.ts](https://github.com/whexy/proxdesk/blob/main/lib/extensions.ts) (`ExtensionApi`) and [lib/chat/commands.ts](https://github.com/whexy/proxdesk/blob/main/lib/chat/commands.ts) (`ChatCommand`, `CommandContext`).
 
 ## Write a command
 
-[examples/extensions/uptime.mjs](../examples/extensions/uptime.mjs) adds `uptime [vm]`:
+[examples/extensions/uptime.mjs](https://github.com/whexy/proxdesk/blob/main/examples/extensions/uptime.mjs) adds `uptime [vm]`:
 
 ```js
 export default function uptime(api) {
@@ -90,7 +90,7 @@ Build replies only with `api.messages`; plain strings in them are escaped for ea
 
 ## Write an adapter
 
-An adapter implements `ChatAdapter` from [lib/chat/adapter.ts](../lib/chat/adapter.ts). [slack.ts](../lib/chat/slack.ts) and [discord.ts](../lib/chat/discord.ts) are complete examples; [demo.ts](../lib/chat/demo.ts) is the smallest one.
+An adapter implements `ChatAdapter` from [lib/chat/adapter.ts](https://github.com/whexy/proxdesk/blob/main/lib/chat/adapter.ts). [slack.ts](https://github.com/whexy/proxdesk/blob/main/lib/chat/slack.ts) and [discord.ts](https://github.com/whexy/proxdesk/blob/main/lib/chat/discord.ts) are complete examples; [demo.ts](https://github.com/whexy/proxdesk/blob/main/lib/chat/demo.ts) is the smallest one.
 
 | Member | Must |
 | --- | --- |
@@ -117,14 +117,14 @@ When sending, it must render with `render(message, markup, target.user)` and a `
 
 ## Test it
 
-The tests in [tests/chat/](../tests/chat/) show the pattern:
+The tests in [tests/chat/](https://github.com/whexy/proxdesk/tree/main/tests/chat/) show the pattern:
 
-- [helpers.ts](../tests/chat/helpers.ts) starts Proxdesk's services in demo mode on an in-memory database, with demo VMs and accounts, and provides a `FakeAdapter` that records replies as plain text.
-- [extensions.test.ts](../tests/chat/extensions.test.ts) loads the example extension into a bot with its own command registry and sends it commands as linked and unlinked chat users.
-- [discord.test.ts](../tests/chat/discord.test.ts) runs an adapter against a fake gateway, a local WebSocket server, and a fake REST function, and checks deduplication, mention handling, and that private replies do not leak.
+- [helpers.ts](https://github.com/whexy/proxdesk/blob/main/tests/chat/helpers.ts) starts Proxdesk's services in demo mode on an in-memory database, with demo VMs and accounts, and provides a `FakeAdapter` that records replies as plain text.
+- [extensions.test.ts](https://github.com/whexy/proxdesk/blob/main/tests/chat/extensions.test.ts) loads the example extension into a bot with its own command registry and sends it commands as linked and unlinked chat users.
+- [discord.test.ts](https://github.com/whexy/proxdesk/blob/main/tests/chat/discord.test.ts) runs an adapter against a fake gateway, a local WebSocket server, and a fake REST function, and checks deduplication, mention handling, and that private replies do not leak.
 
 Run them with `npm test`.
 
 ## The hypervisor
 
-Proxdesk talks to Proxmox through the `Hypervisor` interface in [lib/proxmox.ts](../lib/proxmox.ts): inventory, power actions, task status, and console connections. `DemoHypervisor` implements it for demo mode. It is internal for now: extensions cannot replace it, and it may change between releases.
+Proxdesk talks to Proxmox through the `Hypervisor` interface in [lib/proxmox.ts](https://github.com/whexy/proxdesk/blob/main/lib/proxmox.ts): inventory, power actions, task status, and console connections. `DemoHypervisor` implements it for demo mode. It is internal for now: extensions cannot replace it, and it may change between releases.

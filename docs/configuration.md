@@ -1,6 +1,6 @@
 # Configuration reference
 
-Proxdesk reads its configuration from environment variables when it starts, and from `.env` and `.env.local` files in the application directory; the environment takes precedence. Change a value, then restart. [.env.example](../.env.example) lists the common ones; on NixOS, set the [module options](#nixos-module) instead.
+Proxdesk reads its configuration from environment variables when it starts, and from `.env` and `.env.local` files in the application directory; the environment takes precedence. Change a value, then restart. [.env.example](https://github.com/whexy/proxdesk/blob/main/.env.example) lists the common ones; on NixOS, set the [module options](#nixos-module) instead.
 
 Settings an administrator changes in the web UI, under **Settings**, are stored in the database: the workspace name, the managed VMs, and the backup schedule.
 
@@ -93,7 +93,7 @@ Each variable marked "file" above can instead be read from the file that `<NAME>
 
 ## NixOS module
 
-The module is `nixosModules.default` in the flake; its options are under `services.proxdesk`. Options ending in `File` name files that systemd passes to the service as credentials, so the files may stay readable only by root. `environmentFile` and the secret options, every `File` option except `proxmox.caFile`, take an absolute path as a string, such as `"/run/secrets/proxmox-token"`, and refuse a Nix path such as `./secret` or a path in the Nix store, which would copy the secret into the world-readable store. `proxmox.caFile` is not secret and takes either. Source: [nix/module.nix](../nix/module.nix).
+The module is `nixosModules.default` in the flake; its options are under `services.proxdesk`. Options ending in `File` name files that systemd passes to the service as credentials, so the files may stay readable only by root. `environmentFile` and the secret options, every `File` option except `proxmox.caFile`, take an absolute path as a string, such as `"/run/secrets/proxmox-token"`, and refuse a Nix path such as `./secret` or a path in the Nix store, which would copy the secret into the world-readable store. `proxmox.caFile` is not secret and takes either. Source: [nix/module.nix](https://github.com/whexy/proxdesk/blob/main/nix/module.nix).
 
 | Option | Default | Sets |
 | --- | --- | --- |

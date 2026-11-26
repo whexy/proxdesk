@@ -11,7 +11,7 @@ Before you start, you need:
 
 Images for `linux/amd64` and `linux/arm64` are published as `ghcr.io/whexy/proxdesk`, tagged with each release version and `latest`; [Upgrade](operations.md#upgrade) lists the tags.
 
-1. In a new directory, save the [compose file](../deploy/compose.yaml) as `compose.yaml` and [.env.example](../.env.example) as `proxdesk.env`.
+1. In a new directory, save the [compose file](https://github.com/whexy/proxdesk/blob/main/deploy/compose.yaml) as `compose.yaml` and [.env.example](https://github.com/whexy/proxdesk/blob/main/.env.example) as `proxdesk.env`.
 
 2. In `proxdesk.env`, set `APP_ORIGIN` to the address people will open, such as `https://proxdesk.example.com`, and the `PROXMOX_*` values from [Connect Proxmox](proxmox.md). To trust a private CA, mount its PEM file into the container, readable by the `node` user, and point `PROXMOX_CA_FILE` at it.
 

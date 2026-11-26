@@ -21,6 +21,8 @@ Open <http://localhost:3000> and pick a demo role.
 
 ## Documentation
 
+Read the documentation at <https://proxdesk.b3yond.ai>, or here:
+
 - [Install](docs/install.md)
 - [Connect Proxmox](docs/proxmox.md)
 - [Single sign-on](docs/sso.md)
