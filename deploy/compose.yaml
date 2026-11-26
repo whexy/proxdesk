@@ -1,0 +1,15 @@
+# Example deployment. Copy .env.example to proxdesk.env and fill it in;
+# the image already sets DATABASE_PATH, HOST, and PORT.
+services:
+  proxdesk:
+    image: ghcr.io/whexy/proxdesk:latest
+    restart: unless-stopped
+    init: true
+    env_file: proxdesk.env
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - proxdesk-data:/app/data
+
+volumes:
+  proxdesk-data:

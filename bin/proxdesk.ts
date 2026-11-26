@@ -1,0 +1,4 @@
+import { main } from "../lib/cli";
+
+const code = await main(process.argv.slice(2));
+if (code !== undefined) process.exitCode = code;
