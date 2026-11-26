@@ -11,3 +11,6 @@ dist/
 result
 result-*
 release/
+docs/.vitepress/cache/
+.cloudflare/
+.wrangler/

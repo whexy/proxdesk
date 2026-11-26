@@ -27,6 +27,14 @@ npm run test:e2e
 npm run build
 ```
 
+Documentation lives in `docs/` and is published to <https://proxdesk.b3yond.ai> when it changes on `main`. To preview it at <http://localhost:5173>:
+
+```sh
+cd docs
+npm ci
+npm run dev
+```
+
 Changes to packaging also need `nix flake check`, which builds the package and boots the NixOS module in a VM test.
 
 `@playwright/test` is pinned to the Playwright version in the flake's nixpkgs. Update both together.

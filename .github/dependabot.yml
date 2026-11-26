@@ -13,6 +13,16 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: weekly
+    groups:
+      docs:
+        patterns: ["*"]
+    commit-message:
+      prefix: chore
+      include: scope
   - package-ecosystem: github-actions
     directory: /
     schedule:
