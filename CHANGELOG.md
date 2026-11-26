@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/whexy/proxdesk/compare/v0.1.0...v0.2.0) (2026-11-26)
+
+
+### Features
+
+* **app:** add the Proxdesk icon as the favicon ([41c280d](https://github.com/whexy/proxdesk/commit/41c280d7403b483b8e039db77dec11f81b62ddc7))
+
 ## [0.1.0](https://github.com/whexy/proxdesk/compare/v0.1.0...v0.1.0) (2026-11-26)
 
 
