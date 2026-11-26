@@ -1,6 +1,6 @@
 # The build output is platform-independent JavaScript, so it is built once on
 # the builder's native platform and shared by every target architecture.
-FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS build
+FROM --platform=$BUILDPLATFORM node:25-bookworm-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
@@ -8,7 +8,7 @@ RUN npm ci
 COPY . .
 RUN npm run build && rm -rf .next/cache .next/dev .next/types
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 ARG VERSION=dev
 ARG SOURCE=https://github.com/whexy/proxdesk
 LABEL org.opencontainers.image.title="Proxdesk" \
