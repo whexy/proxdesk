@@ -1,0 +1,26 @@
+#!/bin/bash
+# Runs a proxdesk command as the service user with the environment and
+# credentials of the installed proxdesk.service, so maintenance commands see
+# exactly what the server sees. Environment= values in the unit must not be
+# quoted; %d is the only specifier expanded.
+set -euo pipefail
+if [ "$(id -u)" -ne 0 ]; then
+  echo "proxdesk: run as root, for example: sudo proxdesk $*" >&2
+  exit 1
+fi
+unit="proxdesk-cli-$$"
+creds="/run/credentials/$unit.service"
+args=(
+  --unit="$unit" --quiet --wait --collect
+  --working-directory=/var/lib/proxdesk
+  --uid=proxdesk --gid=proxdesk
+  --property=UMask=0077
+)
+while IFS= read -r line; do
+  case $line in
+    LoadCredential=* | EnvironmentFile=*) args+=(--property="$line") ;;
+    Environment=*) value=${line#Environment=}; args+=(--setenv="${value//%d/$creds}") ;;
+  esac
+done < <(systemctl cat proxdesk.service)
+if [ -t 0 ] && [ -t 1 ]; then args+=(--pty); else args+=(--pipe); fi
+exec systemd-run "${args[@]}" -- /nix/var/nix/profiles/proxdesk/bin/proxdesk "$@"

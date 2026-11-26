@@ -17,6 +17,7 @@ buildNpmPackage rec {
     fileset = lib.fileset.unions [
       ../app
       ../bin
+      ../deploy/nix
       ../lib
       ../types
       ../next.config.mjs
@@ -54,6 +55,9 @@ buildNpmPackage rec {
     makeWrapper ${lib.getExe nodejs_24} $out/bin/proxdesk \
       --add-flags $app/dist/proxdesk.js \
       --set-default NEXT_TELEMETRY_DISABLED 1
+
+    install -Dm644 deploy/nix/proxdesk.service $out/share/proxdesk/proxdesk.service
+    install -Dm755 deploy/nix/proxdesk $out/share/proxdesk/proxdesk-admin
 
     runHook postInstall
   '';

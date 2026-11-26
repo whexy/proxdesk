@@ -24,6 +24,8 @@ docker compose run --rm proxdesk restore /app/data/backups/pre-upgrade.sqlite
 sudo proxdesk doctor
 ```
 
+**Nix on another Linux.** The installed `proxdesk` command works as on NixOS: `sudo proxdesk doctor`.
+
 **Release tarball.** Load the environment file and run as the `proxdesk` user:
 
 ```sh
@@ -88,6 +90,25 @@ sudo nixos-rebuild switch --rollback
 sudo systemctl stop proxdesk.service
 sudo proxdesk restore backups/pre-upgrade.sqlite
 sudo systemctl start proxdesk.service
+```
+
+**Nix on another Linux.** Build the new release into the profile and restart, as root:
+
+```sh
+proxdesk backup backups/pre-0.2.0.sqlite
+nix build --profile /nix/var/nix/profiles/proxdesk github:whexy/proxdesk/v0.2.0
+systemctl restart proxdesk.service
+```
+
+If `/nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk.service` differs from `/etc/systemd/system/proxdesk.service`, merge the change into the installed unit, keeping your credential lines, and run `systemctl daemon-reload` before the restart.
+
+To go back, stop the service, switch the profile to its previous generation, restore the backup, and start:
+
+```sh
+systemctl stop proxdesk.service
+nix profile rollback --profile /nix/var/nix/profiles/proxdesk
+proxdesk restore backups/pre-0.2.0.sqlite
+systemctl start proxdesk.service
 ```
 
 **Release tarball.** Each release unpacks to its own `/opt/proxdesk/proxdesk-<version>` directory, and `/opt/proxdesk/app` links to the one that runs. To upgrade, for example from 0.1.0 to 0.2.0, unpack the new release next to the current one, take a backup, switch the link, and restart, as root:
