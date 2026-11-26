@@ -12,7 +12,7 @@ To use a Slack app your workspace already has, see [Reuse an existing app](#reus
 
 ### Create the app
 
-1. Open <https://api.slack.com/apps>, choose **Create New App → From a manifest**, select your workspace, and paste [slack-app-manifest.json](../deploy/slack-app-manifest.json).
+1. Open <https://api.slack.com/apps>, choose **Create New App → From a manifest**, select your workspace, and paste [slack-app-manifest.json](https://github.com/whexy/proxdesk/blob/main/deploy/slack-app-manifest.json).
 2. Under **Basic Information → App-Level Tokens**, generate a token with the `connections:write` scope. This `xapp-` token is `SLACK_APP_TOKEN`.
 3. Under **Install App**, install the app to the workspace. The **Bot User OAuth Token** (`xoxb-`) is `SLACK_BOT_TOKEN`.
 
