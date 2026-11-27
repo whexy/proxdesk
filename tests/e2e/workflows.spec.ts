@@ -64,9 +64,7 @@ test("administrators can create a member and persist VM permissions", async ({
     .getByRole("row")
     .filter({ hasText: "researcher@example.com" });
   await member.getByRole("button", { name: "Manage access" }).click();
-  const machine = page
-    .locator(".permission-machine")
-    .filter({ hasText: "alex-dev" });
+  const machine = page.getByRole("group", { name: "alex-dev" });
   await machine.getByLabel("View status").check();
   await machine.getByLabel("Reboot", { exact: true }).check();
   await machine.getByLabel("Console", { exact: true }).check();
@@ -76,8 +74,7 @@ test("administrators can create a member and persist VM permissions", async ({
   await member.getByRole("button", { name: "Manage access" }).click();
   await expect(
     page
-      .locator(".permission-machine")
-      .filter({ hasText: "alex-dev" })
+      .getByRole("group", { name: "alex-dev" })
       .getByLabel("Console", { exact: true }),
   ).toBeChecked();
   await page.getByRole("button", { name: "Close dialog" }).click();
@@ -100,7 +97,6 @@ test("member layout fits a phone without page overflow", async ({ page }) => {
     .click();
   await expect(page.getByRole("dialog")).toContainText("Your permissions");
   await page.getByRole("button", { name: "Close machine details" }).click();
-  // The sidebar's account menu is hidden on phones; the top bar opens it.
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("button", { name: "Chat accounts" }).click();
   await expect(page.getByRole("dialog")).toContainText("Chat accounts");
@@ -169,8 +165,8 @@ test("noVNC negotiates an RFB session and renders the console canvas", async ({
   });
   try {
     await page.getByRole("button", { name: "Open alex-dev console" }).click();
-    await expect(page.locator(".console-toolbar")).toContainText("Connected");
-    await expect(page.locator(".console-viewport canvas")).toBeVisible();
+    await expect(page.getByRole("dialog")).toContainText("Connected");
+    await expect(page.getByRole("dialog").locator("canvas")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Ctrl · Alt · Del" }),
     ).toBeEnabled();
@@ -231,8 +227,7 @@ test("administrators link chat members and create chat-only members", async ({
   await expect(chatOnly).toContainText("0 machines");
   await chatOnly.getByRole("button", { name: "Manage access" }).click();
   await page
-    .locator(".permission-machine")
-    .filter({ hasText: "maya-research" })
+    .getByRole("group", { name: "maya-research" })
     .getByLabel("Reboot", { exact: true })
     .check();
   await page.getByRole("button", { name: "Save access" }).click();
@@ -278,9 +273,11 @@ test("a chat user links their account through the link the bot sends", async ({
   await page.goto(path);
   await expect(page.getByText("Sign in to link your chat account.")).toBeVisible();
   await page.getByRole("button", { name: "Explore as member" }).click();
-  await expect(page.locator(".login-description")).toHaveText(
-    "Link Slack user @sam (ID U0DEMOSAM) to your account?",
-  );
+  await expect(
+    page.getByText("Link Slack user @sam (ID U0DEMOSAM) to your account?", {
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(page.getByRole("note")).toContainText(
     "Only confirm if you just asked the bot for this link yourself.",
   );
@@ -296,15 +293,18 @@ test("a chat user links their account through the link the bot sends", async ({
   await expect(confirm).toBeDisabled();
   await page.getByLabel(/Move it to mine/).check();
   await confirm.click();
-  await expect(page.locator(".login-description")).toHaveText(
-    "Slack user @sam (ID U0DEMOSAM) is linked to your account. Mention the bot in Slack to manage your VMs.",
-  );
+  await expect(
+    page.getByText(
+      "Slack user @sam (ID U0DEMOSAM) is linked to your account. Mention the bot in Slack to manage your VMs.",
+      { exact: true },
+    ),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Continue to Proxdesk" }).click();
   await expect(
     page.getByRole("heading", { name: "Virtual machines", exact: true }),
   ).toBeVisible();
 
-  await page.locator("button.account").click();
+  await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("button", { name: "Chat accounts" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Alex Chen");
@@ -314,14 +314,14 @@ test("a chat user links their account through the link the bot sends", async ({
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
   await page.goto(path);
-  await expect(page.locator(".form-error")).toHaveText(
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText(
     "This link is invalid or has expired",
   );
 });
 
 test("members have no Settings page", async ({ page }) => {
   await signIn(page, "member");
-  await expect(page.locator(".breadcrumb")).toContainText("Proxdesk");
+  await expect(page.getByRole("banner")).toContainText("Proxdesk");
   await expect(
     page.getByRole("button", { name: "Settings", exact: true }),
   ).toHaveCount(0);
@@ -340,8 +340,7 @@ test("administrators rename the workspace, limit the managed VMs, and back up", 
   await expect(page.getByRole("status")).toContainText(
     "Workspace settings saved",
   );
-  await expect(page.locator(".breadcrumb")).toContainText("Research Lab");
-  await expect(page.locator(".workspace")).toContainText("Research Lab");
+  await expect(page.getByRole("banner")).toContainText("Research Lab");
   await expect(page).toHaveTitle(/Research Lab/);
 
   await page.getByLabel("Managed VMs").selectOption("pool");
@@ -356,7 +355,7 @@ test("administrators rename the workspace, limit the managed VMs, and back up", 
   await page.getByRole("button", { name: "Back up now" }).click();
   await expect(page.getByRole("status")).toContainText("Backup created");
   await expect(
-    page.locator(".backup-table tbody tr").first(),
+    page.getByRole("table", { name: "Backup files" }).getByRole("row").nth(1),
   ).toContainText(/proxdesk-.*\.sqlite/);
   await page.screenshot({ path: "/tmp/proxdesk-settings.png", fullPage: true });
 
