@@ -1,0 +1,140 @@
+#!/bin/bash
+# Upgrades a Nix-profile install of Proxdesk to the newest release that
+# PROXDESK_UPGRADE_POLICY allows. A release that does not start or fails
+# `proxdesk doctor` is rolled back with the pre-upgrade backup, because an
+# older release refuses a database the newer one migrated.
+set -euo pipefail
+
+profile=${PROXDESK_PROFILE:-/nix/var/nix/profiles/proxdesk}
+repo=${PROXDESK_UPGRADE_REPO:-whexy/proxdesk}
+policy=${PROXDESK_UPGRADE_POLICY:-minor}
+data=${PROXDESK_DATA_DIR:-/var/lib/proxdesk}
+unit_dir=${PROXDESK_UNIT_DIR:-/usr/local/lib/systemd/system}
+state=${STATE_DIRECTORY:-/var/lib/proxdesk-upgrade}
+admin=$profile/share/proxdesk/proxdesk-admin
+failed=$state/failed
+
+check=false
+requested=
+for arg in "$@"; do
+  case $arg in
+    --check) check=true ;;
+    [0-9]*.*.* | v[0-9]*.*.*) requested=${arg#v} ;;
+    *) echo "usage: proxdesk-upgrade [--check] [<version>]" >&2; exit 2 ;;
+  esac
+done
+
+if [ "$(id -u)" -ne 0 ] && ! $check; then
+  echo "proxdesk-upgrade: run as root" >&2
+  exit 1
+fi
+
+version() { "$profile/bin/proxdesk" version | sed 's/^proxdesk //'; }
+newest() { sort -V | tail -n 1; }
+newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n' "$1" "$2" | newest)" = "$1" ]; }
+
+current=$(version)
+IFS=. read -r major minor _ <<<"$current"
+case $policy in
+  minor) prefix="$major." ;;
+  patch) prefix="$major.$minor." ;;
+  *) echo "proxdesk-upgrade: PROXDESK_UPGRADE_POLICY must be minor or patch, not $policy" >&2; exit 2 ;;
+esac
+
+releases=$(git ls-remote --tags --refs "https://github.com/$repo" 'v*' |
+  sed -n 's|.*refs/tags/v\([0-9]*\.[0-9]*\.[0-9]*\)$|\1|p')
+latest=$(newest <<<"$releases")
+target=$( (grep "^${prefix//./\\.}" <<<"$releases" || true) | newest)
+
+if [ -n "$requested" ]; then
+  if ! grep -qxF "$requested" <<<"$releases"; then
+    echo "proxdesk-upgrade: $repo has no release $requested" >&2
+    exit 2
+  fi
+  if ! newer "$requested" "$current"; then
+    echo "Proxdesk $current is not older than $requested" >&2
+    exit 2
+  fi
+  target=$requested
+elif [ -n "$latest" ] && newer "$latest" "$(printf '%s\n' "$current" "$target" | newest)"; then
+  echo "Proxdesk $latest is available; policy $policy installs only $prefix* releases, so run proxdesk-upgrade $latest to install it"
+fi
+if [ -z "$target" ] || ! newer "$target" "$current"; then
+  echo "Proxdesk $current is up to date"
+  exit 0
+fi
+if [ -z "$requested" ] && [ -f "$failed" ] && grep -qxF "$target" "$failed"; then
+  echo "Proxdesk $target was rolled back after a failed upgrade; it is skipped until a newer release. Run proxdesk-upgrade $target to try it again." >&2
+  exit 1
+fi
+if $check; then
+  echo "Proxdesk $current would be upgraded to $target"
+  exit 0
+fi
+
+if ! "$admin" doctor; then
+  echo "Not upgrading: proxdesk doctor fails on Proxdesk $current" >&2
+  exit 1
+fi
+
+# The profile ships the units; copies keep them out of the store path that
+# `systemctl enable` would otherwise pin.
+install_units() {
+  local unit
+  for unit in proxdesk.service proxdesk-upgrade.service proxdesk-upgrade.timer; do
+    if [ -f "$profile/share/proxdesk/$unit" ]; then
+      install -D -m 0644 "$profile/share/proxdesk/$unit" "$unit_dir/$unit" || return 1
+    fi
+  done
+  systemctl daemon-reload
+}
+
+wait_listening() {
+  local invocation deadline
+  invocation=$(systemctl show --property=InvocationID --value proxdesk.service)
+  deadline=$((SECONDS + 120))
+  while [ $SECONDS -lt $deadline ]; do
+    if journalctl --quiet --unit=proxdesk.service "_SYSTEMD_INVOCATION_ID=$invocation" --output=cat |
+      grep -q '^Proxdesk listening on'; then
+      return 0
+    fi
+    if [ "$(systemctl show --property=InvocationID --value proxdesk.service)" != "$invocation" ] ||
+      [ "$(systemctl show --property=ActiveState --value proxdesk.service)" = failed ]; then
+      return 1
+    fi
+    sleep 1
+  done
+  echo "Proxdesk did not start listening within 120 seconds" >&2
+  return 1
+}
+
+start_new() {
+  install_units &&
+    systemctl restart proxdesk.service &&
+    wait_listening &&
+    "$admin" doctor
+}
+
+backup=$data/backups/pre-$target-$(date -u +%Y%m%dT%H%M%SZ).sqlite
+if [ ! -d "$data/backups" ]; then
+  install -d -m 0700 -o proxdesk -g proxdesk "$data/backups"
+fi
+echo "Upgrading Proxdesk $current to $target"
+"$admin" backup "$backup"
+nix build --no-link --profile "$profile" "github:$repo/v$target"
+
+if start_new; then
+  echo "Upgraded Proxdesk $current to $target; the previous database is in $backup"
+  exit 0
+fi
+
+echo "Proxdesk $target failed to start or pass proxdesk doctor; rolling back to $current" >&2
+systemctl stop proxdesk.service
+nix profile rollback --profile "$profile"
+"$admin" restore "$backup"
+install_units
+systemctl start proxdesk.service
+mkdir -p "$state"
+echo "$target" >>"$failed"
+echo "Rolled back to Proxdesk $current; $target will be skipped" >&2
+exit 1

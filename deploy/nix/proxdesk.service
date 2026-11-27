@@ -11,18 +11,11 @@ WorkingDirectory=/var/lib/proxdesk
 Environment=NODE_ENV=production
 Environment=NEXT_TELEMETRY_DISABLED=1
 EnvironmentFile=/etc/proxdesk/proxdesk.env
-# Each secret is a root-only file passed in as a credential. Add a pair of
-# lines for each further secret, such as Slack or Discord tokens.
+# Each secret is a root-only file passed in as a credential. Further secrets,
+# such as Slack or Discord tokens, go in a drop-in under
+# /etc/systemd/system/proxdesk.service.d/, which upgrades leave in place.
 LoadCredential=proxmox-token-secret:/etc/proxdesk/credentials/proxmox-token-secret
 Environment=PROXMOX_TOKEN_SECRET_FILE=%d/proxmox-token-secret
-#LoadCredential=slack-app-token:/etc/proxdesk/credentials/slack-app-token
-#Environment=SLACK_APP_TOKEN_FILE=%d/slack-app-token
-#LoadCredential=slack-bot-token:/etc/proxdesk/credentials/slack-bot-token
-#Environment=SLACK_BOT_TOKEN_FILE=%d/slack-bot-token
-#LoadCredential=discord-bot-token:/etc/proxdesk/credentials/discord-bot-token
-#Environment=DISCORD_BOT_TOKEN_FILE=%d/discord-bot-token
-#LoadCredential=oidc-client-secret:/etc/proxdesk/credentials/oidc-client-secret
-#Environment=OIDC_CLIENT_SECRET_FILE=%d/oidc-client-secret
 ExecStart=/nix/var/nix/profiles/proxdesk/bin/proxdesk serve
 Restart=on-failure
 RestartSec=5s

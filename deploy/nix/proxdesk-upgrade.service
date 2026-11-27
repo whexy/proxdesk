@@ -1,0 +1,11 @@
+[Unit]
+Description=Upgrade Proxdesk to the newest release
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# The host's Nix, which this unit's default PATH does not include.
+Environment=PATH=/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+StateDirectory=proxdesk-upgrade
+ExecStart=/nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk-upgrade
