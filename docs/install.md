@@ -122,21 +122,33 @@ chmod 0600 /etc/proxdesk/credentials/proxmox-token-secret
 
 In `/etc/proxdesk/proxdesk.env`, set `DATABASE_PATH=/var/lib/proxdesk/proxdesk.sqlite`, `HOST=127.0.0.1` if the reverse proxy runs on the same host, and the values from step 2 of [Container](#container) except `PROXMOX_TOKEN_SECRET`, which the unit passes from its file.
 
-Install the unit and the root `proxdesk` command from the profile:
+Install the units and the root `proxdesk` and `proxdesk-upgrade` commands from the profile. The units are copies that each upgrade replaces; the commands are links, so they always match the installed release:
 
 ```sh
-cp /nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk.service /etc/systemd/system/
-install -m 0755 /nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk-admin /usr/local/sbin/proxdesk
+cd /nix/var/nix/profiles/proxdesk/share/proxdesk
+install -D -m 0644 -t /usr/local/lib/systemd/system proxdesk.service proxdesk-upgrade.service proxdesk-upgrade.timer
+ln -sfn /nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk-admin /usr/local/sbin/proxdesk
+ln -sfn /nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk-upgrade /usr/local/sbin/proxdesk-upgrade
 ```
 
-The unit loads each secret file as a credential. For Slack, Discord, or SSO, put each token in its own file under `/etc/proxdesk/credentials` and uncomment its two lines in `/etc/systemd/system/proxdesk.service`. The `proxdesk` command reads the installed unit, so it always runs with the same configuration and credentials as the service.
+The unit passes the Proxmox token secret in as a credential. For Slack, Discord, or SSO, put each token in its own file under `/etc/proxdesk/credentials` and pass it in a drop-in, which upgrades leave in place. For Slack, create `/etc/systemd/system/proxdesk.service.d/credentials.conf`:
 
-Create the administrator, start the service, and check it:
+```ini
+[Service]
+LoadCredential=slack-app-token:/etc/proxdesk/credentials/slack-app-token
+Environment=SLACK_APP_TOKEN_FILE=%d/slack-app-token
+LoadCredential=slack-bot-token:/etc/proxdesk/credentials/slack-bot-token
+Environment=SLACK_BOT_TOKEN_FILE=%d/slack-bot-token
+```
+
+Discord's token goes in `DISCORD_BOT_TOKEN_FILE` and the SSO client secret in `OIDC_CLIENT_SECRET_FILE` the same way. The `proxdesk` command reads the unit and its drop-ins, so it always runs with the same configuration and credentials as the service.
+
+Create the administrator, then start the service and its daily [unattended upgrades](operations.md#unattended-upgrades), and check it:
 
 ```sh
-proxdesk create-admin --email admin@example.com
 systemctl daemon-reload
-systemctl enable --now proxdesk.service
+proxdesk create-admin --email admin@example.com
+systemctl enable --now proxdesk.service proxdesk-upgrade.timer
 proxdesk doctor
 ```
 
