@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/whexy/proxdesk/compare/v0.3.0...v0.4.0) (2026-11-27)
+
+
+### Features
+
+* **ui:** redesign the portal in the Frost design language ([7507267](https://github.com/whexy/proxdesk/commit/75072676baa9ffb5593bd6548fd621baa3a5ddbc))
+
 ## [0.3.0](https://github.com/whexy/proxdesk/compare/v0.2.0...v0.3.0) (2026-11-27)
 
 
