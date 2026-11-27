@@ -172,8 +172,16 @@ Earlier installs copied `proxdesk.service` to `/etc/systemd/system`, which hides
 
 1. Back up the database with `proxdesk backup backups/pre-unattended.sqlite`, then build the first release that ships `proxdesk-upgrade` (see the [changelog](https://github.com/whexy/proxdesk/blob/main/CHANGELOG.md)) with `nix build --profile /nix/var/nix/profiles/proxdesk github:whexy/proxdesk/v<version>`.
 2. Compare `/etc/systemd/system/proxdesk.service` with `/nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk.service`, and put the lines only yours has, such as further credentials, in `/etc/systemd/system/proxdesk.service.d/credentials.conf` under `[Service]`.
-3. Remove `/etc/systemd/system/proxdesk.service`, then install the units and commands and enable the timer as in [Nix on another Linux](install.md#nix-on-another-linux).
-4. Run `systemctl daemon-reload`, `systemctl restart proxdesk.service`, and `proxdesk doctor`.
+3. Remove `/etc/systemd/system/proxdesk.service`, then install the units and commands as in [Nix on another Linux](install.md#nix-on-another-linux).
+4. Point the service's boot link at the new unit and turn on the timer. The link still names the removed file, so without `reenable` Proxdesk does not start at boot:
+
+   ```sh
+   systemctl daemon-reload
+   systemctl reenable proxdesk.service
+   systemctl enable --now proxdesk-upgrade.timer
+   systemctl restart proxdesk.service
+   proxdesk doctor
+   ```
 
 </details>
 
