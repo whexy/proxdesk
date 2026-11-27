@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/whexy/proxdesk/compare/v0.2.0...v0.3.0) (2026-11-27)
+
+
+### Features
+
+* **nix:** upgrade Nix-profile installs unattended ([0b16c67](https://github.com/whexy/proxdesk/commit/0b16c6712e2e949fceb4dbe787cc5e035905e6cf))
+* **nix:** upgrade Nix-profile installs unattended ([6831d2b](https://github.com/whexy/proxdesk/commit/6831d2b89c8662e95abe722e7acab3b193a8aa75))
+
 ## [0.2.0](https://github.com/whexy/proxdesk/compare/v0.1.0...v0.2.0) (2026-11-26)
 
 
