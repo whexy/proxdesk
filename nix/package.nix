@@ -4,6 +4,10 @@
   importNpmLock,
   nodejs_24,
   makeWrapper,
+  coreutils,
+  git,
+  gnugrep,
+  gnused,
 }:
 let
   manifest = lib.importJSON ../package.json;
@@ -58,6 +62,19 @@ buildNpmPackage rec {
 
     install -Dm644 deploy/nix/proxdesk.service $out/share/proxdesk/proxdesk.service
     install -Dm755 deploy/nix/proxdesk $out/share/proxdesk/proxdesk-admin
+    install -Dm644 -t $out/share/proxdesk deploy/nix/proxdesk-upgrade.{service,timer}
+    # systemctl, journalctl, and nix come from the host, so the store's
+    # tools are prepended to its PATH rather than replacing it.
+    install -Dm755 deploy/nix/proxdesk-upgrade $out/libexec/proxdesk/proxdesk-upgrade
+    makeWrapper $out/libexec/proxdesk/proxdesk-upgrade $out/share/proxdesk/proxdesk-upgrade \
+      --prefix PATH : ${
+        lib.makeBinPath [
+          coreutils
+          git
+          gnugrep
+          gnused
+        ]
+      }
 
     runHook postInstall
   '';

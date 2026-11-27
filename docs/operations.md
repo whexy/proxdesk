@@ -92,22 +92,21 @@ sudo proxdesk restore backups/pre-upgrade.sqlite
 sudo systemctl start proxdesk.service
 ```
 
-**Nix on another Linux.** Build the new release into the profile and restart, as root:
+**Nix on another Linux.** [Unattended upgrades](#unattended-upgrades) install new releases with the same major version. For a new major version, or to upgrade now, run as root:
 
 ```sh
-proxdesk backup backups/pre-0.2.0.sqlite
-nix build --profile /nix/var/nix/profiles/proxdesk github:whexy/proxdesk/v0.2.0
-systemctl restart proxdesk.service
+proxdesk-upgrade 1.0.0
 ```
 
-If `/nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk.service` differs from `/etc/systemd/system/proxdesk.service`, merge the change into the installed unit, keeping your credential lines, and run `systemctl daemon-reload` before the restart.
+It takes the same steps, backup and rollback as an unattended upgrade. Without a version, it installs the newest release its policy allows.
 
-To go back, stop the service, switch the profile to its previous generation, restore the backup, and start:
+To go back after an upgrade that succeeded, stop the service, switch the profile to its previous generation, restore the backup the upgrade took, and start. Turn off unattended upgrades first, or the next run installs the release again:
 
 ```sh
+systemctl disable --now proxdesk-upgrade.timer
 systemctl stop proxdesk.service
 nix profile rollback --profile /nix/var/nix/profiles/proxdesk
-proxdesk restore backups/pre-0.2.0.sqlite
+proxdesk restore backups/pre-0.2.0-20261127T041500Z.sqlite
 systemctl start proxdesk.service
 ```
 
@@ -134,6 +133,51 @@ systemctl start proxdesk.service
 Changes made after the backup are lost. Remove old release directories once you no longer need them.
 
 After any upgrade, check the log and run [`doctor`](cli.md#doctor).
+
+### Unattended upgrades
+
+On [Nix on another Linux](install.md#nix-on-another-linux), `proxdesk-upgrade.timer` checks daily, between 04:00 and 05:00, for a release with the same major version, such as 0.2.1 or 0.3.0 on 0.2.0, but not 1.0.0. When one is out, it:
+
+1. Checks that `proxdesk doctor` passes; if not, it does not upgrade.
+2. Backs up the database to `/var/lib/proxdesk/backups/pre-<version>-<time>.sqlite`.
+3. Builds the release into the profile, installs its units, and restarts the service.
+4. Rolls back to the previous release and the backup if the new one does not start within two minutes or `doctor` fails. It then skips that release until a newer one is out or you name it with `proxdesk-upgrade <version>`.
+
+A run that did not upgrade because of a failure leaves `proxdesk-upgrade.service` failed, so it shows in `systemctl --failed`. Its log says why:
+
+```sh
+journalctl -u proxdesk-upgrade.service -n 50
+```
+
+`proxdesk-upgrade --check` shows what the next run would do, without changing anything:
+
+```text
+$ proxdesk-upgrade --check
+Proxdesk 0.1.0 would be upgraded to 0.2.0
+```
+
+To install only patch releases, such as 0.2.1 but not 0.3.0, run `systemctl edit proxdesk-upgrade.service` and add:
+
+```ini
+[Service]
+Environment=PROXDESK_UPGRADE_POLICY=patch
+```
+
+To turn unattended upgrades off, run `systemctl disable --now proxdesk-upgrade.timer`.
+
+<details>
+<summary>Turn on unattended upgrades for an install with its unit in /etc/systemd/system</summary>
+
+Earlier installs copied `proxdesk.service` to `/etc/systemd/system`, which hides the units that upgrades install. As root, move your own lines into a drop-in and install the shipped units:
+
+1. Back up the database with `proxdesk backup backups/pre-unattended.sqlite`, then build the first release that ships `proxdesk-upgrade` (see the [changelog](https://github.com/whexy/proxdesk/blob/main/CHANGELOG.md)) with `nix build --profile /nix/var/nix/profiles/proxdesk github:whexy/proxdesk/v<version>`.
+2. Compare `/etc/systemd/system/proxdesk.service` with `/nix/var/nix/profiles/proxdesk/share/proxdesk/proxdesk.service`, and put the lines only yours has, such as further credentials, in `/etc/systemd/system/proxdesk.service.d/credentials.conf` under `[Service]`.
+3. Remove `/etc/systemd/system/proxdesk.service`, then install the units and commands and enable the timer as in [Nix on another Linux](install.md#nix-on-another-linux).
+4. Run `systemctl daemon-reload`, `systemctl restart proxdesk.service`, and `proxdesk doctor`.
+
+</details>
+
+Containers and NixOS do not have this. An image auto-updater pointed at a minor-series tag, such as `0.2`, upgrades a container but cannot roll back its database. NixOS upgrades Proxdesk when the flake input updates and the system is rebuilt, so `system.autoUpgrade` upgrades it only if it updates that input.
 
 ## Run one instance
 
