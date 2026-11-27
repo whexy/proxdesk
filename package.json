@@ -30,12 +30,17 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@fontsource/fira-sans": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/lato": "^5.3.0",
     "@playwright/test": "1.64.1",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/ws": "^8.18.0",
     "esbuild": "^0.28.0",
+    "tailwindcss": "^4.3.5",
     "tsx": "^4.20.0",
     "typescript": "^7.0.2"
   },

@@ -1,0 +1,233 @@
+/*
+ * Portal components that Frost does not ship (forms, dialogs, tables,
+ * menus, toasts). Each is derived from a Frost surface and reads only
+ * from tokens.css; styles/frost/ stays an unchanged copy of the shared
+ * files.
+ */
+
+@layer base {
+  /* Fonts come from @fontsource (imported in app/layout.tsx) rather than
+     next/font/google, because the Nix build has no network. Noto Sans SC
+     is not bundled; the name only completes Frost's font stacks. */
+  :root {
+    --font-lato: "Lato";
+    --font-fira: "Fira Sans";
+    --font-jetbrains: "JetBrains Mono";
+    --font-notosans: "Noto Sans SC";
+  }
+
+  body {
+    @apply text-ink font-sans antialiased;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+}
+
+@layer components {
+  /* ================= Buttons =================
+     Secondary action on opaque surfaces, where btn-glass would vanish. */
+  .btn-soft {
+    @apply font-title text-ink-glass focus-visible:outline-accent inline-flex items-center justify-center gap-2 rounded-xl border border-black/5 bg-black/5 px-4 py-2 text-sm font-medium tracking-wide whitespace-nowrap transition-all duration-200 hover:scale-[1.02] hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2;
+  }
+
+  /* Square icon-only action (close, row menu, reconnect). */
+  .btn-icon {
+    @apply text-ink-subtle hover:text-ink-strong focus-visible:outline-accent inline-flex size-9 shrink-0 items-center justify-center rounded-xl transition-all duration-200 hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2;
+  }
+
+  /* Frost documents a built-in icon gap for both buttons, but only
+     btn-glass lays out as flex. */
+  .btn-solid {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap;
+  }
+
+  /* Disabled: faded, no lift. Declared after the Frost buttons so it
+     overrides their hover at equal specificity. */
+  .btn-solid:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
+  .btn-glass:disabled {
+    @apply cursor-not-allowed opacity-40 hover:scale-none hover:border-white/30 hover:bg-white/20;
+  }
+
+  .btn-soft:disabled {
+    @apply cursor-not-allowed opacity-40 hover:scale-none hover:bg-black/5;
+  }
+
+  .btn-icon:disabled {
+    @apply text-ink-subtle cursor-not-allowed opacity-40 hover:bg-transparent;
+  }
+
+  /* ================= Page ================= */
+
+  .page-title {
+    @apply font-title text-ink text-3xl leading-tight font-bold tracking-tight;
+  }
+
+  .page-subtitle {
+    @apply font-article text-ink-subtle mt-1 text-base leading-relaxed;
+  }
+
+  .card-title {
+    @apply font-title text-ink-glass flex items-center gap-2 text-lg font-bold;
+  }
+
+  /* Header row of a paper card: title left, meta or action right. */
+  .card-head {
+    @apply flex flex-wrap items-center justify-between gap-3 px-4 pt-6 pb-4 sm:px-6;
+  }
+
+  .footnote {
+    @apply text-ink-muted flex items-start justify-center gap-2 px-4 text-center text-xs leading-relaxed;
+  }
+
+  /* Neutral label: counts, roles, tags, "Chat only", "Demo". */
+  .chip {
+    @apply font-title text-ink-subtle inline-flex items-center gap-1 rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-medium whitespace-nowrap;
+  }
+
+  /* Initials disc where a person has no photo. */
+  .initials {
+    @apply bg-placeholder font-title text-ink-subtle inline-flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold;
+  }
+
+  /* VM state: a filled ink dot is running, a hollow faint ring is not. */
+  .state-dot {
+    @apply inline-block size-2 shrink-0 rounded-full;
+  }
+
+  .state-on {
+    @apply bg-ink;
+  }
+
+  .state-off {
+    @apply border-ink-faint border;
+  }
+
+  /* ================= Tables =================
+     Rows on paper with rule hairlines, as in stat-row. */
+  .data-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+
+  .data-table th {
+    @apply border-rule text-ink-muted border-y px-3 py-2.5 text-xs font-medium whitespace-nowrap first:pl-4 last:pr-4 sm:first:pl-6 sm:last:pr-6;
+  }
+
+  .data-table td {
+    @apply border-rule border-b px-3 py-3 align-middle first:pl-4 last:pr-4 sm:first:pl-6 sm:last:pr-6;
+  }
+
+  .data-table tbody tr {
+    @apply hover:bg-wash transition-colors duration-200;
+  }
+
+  .data-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  /* ================= Forms ================= */
+
+  .field {
+    @apply font-title text-ink-soft flex flex-col gap-1.5 text-sm font-medium;
+  }
+
+  .field-hint {
+    @apply text-ink-muted font-sans text-xs font-normal;
+  }
+
+  .input {
+    @apply text-ink placeholder:text-ink-faint focus-visible:outline-accent w-full min-w-0 rounded-xl border border-black/10 bg-white px-3 py-2 font-sans text-sm font-normal transition-colors duration-150 hover:border-black/20 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40;
+  }
+
+  /* Wrapper for a native select with its chevron drawn on top. */
+  .select {
+    @apply relative flex items-center;
+  }
+
+  .select > select {
+    @apply appearance-none pr-9;
+  }
+
+  .select > svg {
+    @apply text-ink-muted pointer-events-none absolute right-3;
+  }
+
+  .check {
+    @apply text-ink-soft inline-flex items-center gap-2 text-sm;
+  }
+
+  .check > input {
+    @apply accent-ink focus-visible:outline-accent size-4 focus-visible:outline-2 focus-visible:outline-offset-2;
+  }
+
+  /* Neutral message: errors, warnings and notes share one shape. */
+  .notice {
+    @apply text-ink flex items-start gap-3 rounded-2xl bg-black/5 px-4 py-3 text-sm leading-relaxed;
+  }
+
+  .notice > svg {
+    @apply mt-0.5 shrink-0;
+  }
+
+  .dialog-copy {
+    @apply font-article text-ink-subtle text-sm leading-relaxed;
+  }
+
+  .form-note {
+    @apply text-ink-muted text-xs leading-relaxed;
+  }
+
+  .divider {
+    @apply text-ink-muted flex items-center gap-3 text-xs before:h-px before:flex-1 before:bg-black/10 after:h-px after:flex-1 after:bg-black/10;
+  }
+
+  /* ================= Overlays ================= */
+
+  /* Light scrim: blurs the page instead of darkening it. */
+  .scrim {
+    @apply fixed inset-0 z-50 flex items-end justify-center bg-white/40 backdrop-blur-sm sm:items-center sm:p-4;
+  }
+
+  /* Used with `paper`. */
+  .dialog {
+    @apply max-h-full w-full overflow-y-auto border border-black/5 p-6 shadow-md shadow-black/5 max-sm:rounded-t-3xl;
+  }
+
+  /* Floating glass (the chart-tip recipe): menus and toasts. */
+  .glass-float {
+    @apply rounded-2xl border border-black/5 bg-white/70 shadow-md shadow-black/5 backdrop-blur-xl backdrop-saturate-150;
+  }
+
+  /* Used with `glass-float`. */
+  .menu {
+    @apply z-50 flex min-w-52 flex-col p-1.5;
+  }
+
+  .menu-item {
+    @apply font-title text-ink-soft hover:text-ink-strong focus-visible:outline-accent flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium transition-colors duration-150 hover:bg-black/5 focus-visible:outline-2 focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  /* ================= Details ================= */
+
+  .details {
+    @apply grid grid-cols-2 gap-x-4 gap-y-4;
+  }
+
+  .details dt {
+    @apply text-ink-muted text-xs;
+  }
+
+  .details dd {
+    @apply text-ink mt-0.5 text-sm break-words;
+  }
+
+  /* noVNC inserts its own screen element and sizes it to the parent. */
+  .console-screen > div {
+    @apply min-h-full;
+  }
+}

@@ -18,12 +18,9 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
-  Layers3,
-  LayoutGrid,
   Link2,
   Loader2,
   LogOut,
-  MemoryStick,
   MessageSquare,
   Monitor,
   MoreHorizontal,
@@ -34,7 +31,6 @@ import {
   RotateCcw,
   Search,
   Server,
-  Settings,
   Settings2,
   Shield,
   SquareTerminal,
@@ -44,7 +40,6 @@ import {
   Users,
   X,
   XCircle,
-  Zap,
 } from "lucide-react";
 import {
   permissions,
@@ -127,8 +122,10 @@ function uptime(seconds: number) {
 }
 function State({ value }: { value: string }) {
   return (
-    <span className={`state state-${value}`}>
-      <i />
+    <span className="text-ink-soft inline-flex items-center gap-2 text-sm whitespace-nowrap">
+      <i
+        className={`state-dot ${value === "running" ? "state-on" : "state-off"}`}
+      />
       {value === "running"
         ? "Running"
         : value === "stopped"
@@ -136,6 +133,9 @@ function State({ value }: { value: string }) {
           : value}
     </span>
   );
+}
+function Spinner({ size = 15 }: { size?: number }) {
+  return <Loader2 size={size} className="motion-safe:animate-spin" />;
 }
 function Modal({
   title,
@@ -188,22 +188,24 @@ function Modal({
   }, [onClose]);
   return (
     <div
-      className="modal-backdrop"
+      className="scrim"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className={`modal ${wide ? "modal-wide" : ""}`}
+        className={`paper dialog ${wide ? "sm:max-w-content" : "sm:max-w-md"}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         ref={ref}
       >
-        <div className="modal-heading">
-          <h2 id="modal-title">{title}</h2>
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h2 id="modal-title" className="card-title">
+            {title}
+          </h2>
           <button
-            className="icon-button"
+            className="btn-icon -mr-2"
             onClick={onClose}
             aria-label="Close dialog"
           >
@@ -236,11 +238,11 @@ export default function Home() {
     [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState<number | null>(null),
     [menu, setMenu] = useState<number | null>(null),
-    // The sidebar holds the account menu; phones hide the sidebar's foot
-    // and open the same menu from the top bar.
-    [accountMenu, setAccountMenu] = useState<"sidebar" | "topbar" | null>(
-      null,
-    );
+    // Where the account menu opens; null while closed.
+    [accountMenu, setAccountMenu] = useState<{
+      top: number;
+      right: number;
+    } | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [confirm, setConfirm] = useState<{ vm: VM; action: Action } | null>(
       null,
@@ -454,9 +456,11 @@ export default function Home() {
   const running = vms.filter((vm) => vm.status === "running");
   if (!ready)
     return (
-      <div className="initial-loading">
-        <Layers3 size={30} />
-        <Loader2 className="spin" size={20} />
+      <div
+        className="text-ink-muted flex min-h-dvh items-center justify-center"
+        aria-label="Loading"
+      >
+        <Spinner size={22} />
       </div>
     );
   if (!user)
@@ -471,364 +475,324 @@ export default function Home() {
     );
   if (linkCode) return <LinkAccount code={linkCode} user={user} />;
 
-  const accountMenuItems = (
-    <>
-      <strong>{user.email ?? user.name}</strong>
-      <span>{user.role === "admin" ? "Administrator" : "Member"}</span>
-      <button
-        onClick={() => {
-          setChangePassword(true);
-          setAccountMenu(null);
-        }}
-      >
-        <Shield size={15} />
-        Change password
-      </button>
-      <button
-        onClick={() => {
-          setChatAccounts(true);
-          setAccountMenu(null);
-        }}
-      >
-        <MessageSquare size={15} />
-        Chat accounts
-      </button>
-      <button onClick={logout}>
-        <LogOut size={15} />
-        Sign out
-      </button>
-    </>
-  );
+  const tabs: [typeof tab, string][] = [
+    ["vms", "Virtual machines"],
+    ...(user.role === "admin"
+      ? ([
+          ["members", "Members"],
+          ["chat", "Chat"],
+        ] as [typeof tab, string][])
+      : []),
+    ["activity", "Activity"],
+    ...(user.role === "admin"
+      ? ([["settings", "Settings"]] as [typeof tab, string][])
+      : []),
+  ];
+  const stopped = vms.filter((vm) => vm.status === "stopped");
   return (
     <div
-      className="app-shell"
+      className="min-h-dvh"
       onClick={() => {
         if (menu !== null) setMenu(null);
+        if (accountMenu) setAccountMenu(null);
       }}
     >
-      <aside className="sidebar">
-        <a href="/" className="brand">
-          <span className="brand-mark">
-            <Layers3 size={21} />
-          </span>
-          Prox<span>desk</span>
-        </a>
-        <div className="workspace">
-          <span className="workspace-icon" aria-hidden="true">
-            {(workspaceName || "P").charAt(0).toUpperCase()}
-          </span>
-          <div>
-            <strong>{workspaceName || "Proxdesk"}</strong>
-            <small>Infrastructure</small>
+      <header className="header-bar print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-1 px-4 py-2 lg:px-8">
+          <a
+            href="/"
+            className="font-title focus-visible:outline-accent rounded-md text-2xl font-semibold text-black focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            {workspaceName || "Proxdesk"}
+          </a>
+          <nav
+            aria-label="Main navigation"
+            className="order-last flex w-full flex-wrap gap-x-6 gap-y-1 pb-1 sm:order-none sm:mr-auto sm:w-auto sm:pb-0"
+          >
+            {tabs.map(([id, label]) => (
+              <button
+                key={id}
+                aria-current={tab === id ? "page" : undefined}
+                className={`nav-link rounded-md ${tab === id ? "nav-link-active" : ""}`}
+                onClick={() => {
+                  setTab(id);
+                  setSelected(null);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="flex items-center gap-3">
+            {demo && <span className="chip">Demo</span>}
+            <button
+              className="initials focus-visible:outline-accent transition-all duration-200 hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2"
+              title={user.name}
+              aria-label="Account menu"
+              aria-expanded={!!accountMenu}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setAccountMenu(
+                  accountMenu
+                    ? null
+                    : { top: rect.bottom + 8, right: innerWidth - rect.right },
+                );
+              }}
+            >
+              {initials(user.name)}
+            </button>
           </div>
         </div>
-        <nav aria-label="Main navigation">
+      </header>
+      {accountMenu && (
+        <div
+          // Outside the header: its backdrop blur would otherwise limit
+          // this menu's blur to the header itself.
+          className="glass-float menu fixed min-w-64"
+          style={accountMenu}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 pt-2 pb-2">
+            <p className="text-ink text-sm font-medium">{user.name}</p>
+            <p className="text-ink-muted text-xs">
+              {user.email ? `${user.email} · ` : ""}
+              {user.role === "admin" ? "Administrator" : "Member"}
+            </p>
+            <p className="text-ink-muted mt-2 flex items-center gap-2 text-xs">
+              <i
+                className={`state-dot ${loadError ? "state-off" : "state-on"}`}
+              />
+              {demo
+                ? "Demo environment, simulated VMs"
+                : loadError
+                  ? "Connection needs attention"
+                  : "Proxmox connected"}
+            </p>
+          </div>
+          <div className="my-1 h-px bg-black/5" />
           <button
-            className={tab === "vms" ? "nav-item active" : "nav-item"}
+            className="menu-item"
             onClick={() => {
-              setTab("vms");
-              setSelected(null);
+              setChangePassword(true);
+              setAccountMenu(null);
             }}
           >
-            <LayoutGrid size={18} />
-            Virtual machines<span className="nav-count">{vms.length}</span>
+            <Shield size={15} />
+            Change password
           </button>
-          {user.role === "admin" && (
-            <button
-              className={tab === "members" ? "nav-item active" : "nav-item"}
-              onClick={() => setTab("members")}
-            >
-              <Users size={18} />
-              Members<span className="nav-count">{members.length}</span>
-            </button>
-          )}
-          {user.role === "admin" && (
-            <button
-              className={tab === "chat" ? "nav-item active" : "nav-item"}
-              onClick={() => setTab("chat")}
-            >
-              <MessageSquare size={18} />
-              Chat
-            </button>
-          )}
           <button
-            className={tab === "activity" ? "nav-item active" : "nav-item"}
-            onClick={() => setTab("activity")}
+            className="menu-item"
+            onClick={() => {
+              setChatAccounts(true);
+              setAccountMenu(null);
+            }}
           >
-            <Activity size={18} />
-            Activity
+            <MessageSquare size={15} />
+            Chat accounts
           </button>
-          {user.role === "admin" && (
-            <button
-              className={tab === "settings" ? "nav-item active" : "nav-item"}
-              onClick={() => setTab("settings")}
-            >
-              <Settings size={18} />
-              Settings
-            </button>
-          )}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="connection">
-            <span className={`connection-dot ${loadError ? "offline" : ""}`} />
-            <div>
-              <strong>
-                {demo
-                  ? "Demo environment"
-                  : loadError
-                    ? "Connection needs attention"
-                    : "Proxmox connected"}
-              </strong>
-              <small>
-                {demo ? "Simulated infrastructure" : "Secure server connection"}
-              </small>
-            </div>
-          </div>
-          <div className="account-wrap">
-            {accountMenu === "sidebar" && (
-              <div className="account-menu">{accountMenuItems}</div>
-            )}
-            <button
-              className="account"
-              onClick={() =>
-                setAccountMenu(accountMenu === "sidebar" ? null : "sidebar")
-              }
-              aria-expanded={accountMenu === "sidebar"}
-            >
-              <span className="avatar">{initials(user.name)}</span>
-              <span>
-                <strong>{user.name}</strong>
-                <small>
-                  {user.role === "admin" ? "Administrator" : "Member"}
-                </small>
-              </span>
-              <MoreHorizontal size={18} />
-            </button>
-          </div>
+          <button className="menu-item" onClick={logout}>
+            <LogOut size={15} />
+            Sign out
+          </button>
         </div>
-      </aside>
-      <div className="main-shell">
-        <header className="topbar">
-          <div className="breadcrumb">
-            <span>{workspaceName || "Proxdesk"}</span>
-            <ChevronRight size={14} />
-            <strong>
-              {tab === "vms"
-                ? "Virtual machines"
-                : tab === "members"
-                  ? "Members"
-                  : tab === "chat"
-                    ? "Chat"
-                    : tab === "settings"
-                      ? "Settings"
-                      : "Activity"}
-            </strong>
-          </div>
-          <div className="topbar-right">
-            {demo && <span className="demo-pill">Demo mode</span>}
-            <div className="topbar-account">
-              <button
-                className="topbar-avatar"
-                title={user.name}
-                aria-label="Account menu"
-                aria-expanded={accountMenu === "topbar"}
-                onClick={() =>
-                  setAccountMenu(accountMenu === "topbar" ? null : "topbar")
-                }
-              >
-                {initials(user.name)}
-              </button>
-              {accountMenu === "topbar" && (
-                <div className="account-menu topbar-menu">
-                  {accountMenuItems}
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-        <main>
+      )}
+      <main className="text-ink">
+        <div className="box-border flex w-full flex-col gap-8 px-0 py-4 sm:px-4 sm:py-10 lg:px-8">
           {loadError && (
-            <div className="error-banner" role="alert">
+            <div className="notice mx-4 items-center sm:mx-0" role="alert">
               <XCircle size={18} />
-              <span>{loadError}</span>
-              <button onClick={() => refresh(user)}>Retry</button>
+              <span className="flex-1">{loadError}</span>
+              <button
+                className="btn-soft px-3 py-1.5"
+                onClick={() => refresh(user)}
+              >
+                Retry
+              </button>
             </div>
           )}
           {tab === "vms" && (
             <>
-              <div className="page-heading">
-                <div>
-                  <h1>Virtual machines</h1>
-                </div>
+              <PageHeading title="Virtual machines">
                 <button
-                  className="button"
+                  className="btn-soft"
                   onClick={() => refresh(user)}
                   disabled={loading}
                 >
-                  <RefreshCw size={15} className={loading ? "spin" : ""} />
+                  <RefreshCw
+                    size={15}
+                    className={loading ? "motion-safe:animate-spin" : ""}
+                  />
                   Refresh
                 </button>
-              </div>
-              <div className="stats-grid">
-                <Stat
-                  title="Virtual machines"
-                  value={String(vms.length)}
-                  subtitle={
-                    user.role === "admin"
-                      ? "In your managed inventory"
-                      : "Assigned to you"
-                  }
-                  icon={<Server size={19} />}
-                />
-                <Stat
-                  title="Running"
-                  value={String(running.length)}
-                  subtitle={
-                    <>
-                      <span className="tiny-dot" />
-                      {vms.filter((vm) => vm.status === "stopped").length}{" "}
-                      stopped
-                    </>
-                  }
-                  icon={<Zap size={19} />}
-                />
-                <Stat
-                  title="Memory in use"
-                  value={size(vms.reduce((n, vm) => n + vm.memory, 0))}
-                  subtitle={`${size(vms.reduce((n, vm) => n + vm.maxMemory, 0))} allocated`}
-                  icon={<MemoryStick size={19} />}
-                />
-              </div>
-              <section className="panel machine-panel">
-                <div className="panel-toolbar">
-                  <div className="search-box">
-                    <Search size={16} />
-                    <input
-                      aria-label="Search virtual machines"
-                      placeholder="Search machines…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+              </PageHeading>
+              <section
+                className="glass-card w-full p-6 max-sm:rounded-none lg:p-8"
+                aria-label="Summary"
+              >
+                <div className="glass-tint from-blue-100/30 via-purple-50/20 to-pink-100/30" />
+                <div className="glow-blob top-4 left-4 h-24 w-24 from-blue-200/20 to-cyan-200/20 blur-xl" />
+                <div className="glow-blob right-6 bottom-4 h-20 w-20 from-purple-200/15 to-pink-200/15 blur-lg" />
+                <div className="glow-blob top-8 right-4 h-16 w-16 from-yellow-200/15 to-orange-200/15 blur-lg" />
+                <div className="glass-shine" />
+                <div className="relative z-10">
+                  <p className="text-ink-muted text-sm">Running now</p>
+                  <p className="figure-hero mt-2">
+                    {running.length}
+                    <span className="figure-unit">of {vms.length}</span>
+                  </p>
+                  <div className="stat-row mt-6">
+                    <Stat
+                      label="Machines"
+                      value={String(vms.length)}
+                      note={
+                        user.role === "admin"
+                          ? "In your managed inventory"
+                          : "Assigned to you"
+                      }
                     />
-                  </div>
-                  <div className="filter-control">
-                    <span
-                      className={`filter-dot ${filter === "stopped" ? "muted-dot" : ""}`}
+                    <Stat label="Stopped" value={String(stopped.length)} />
+                    <Stat
+                      label="Memory in use"
+                      value={size(vms.reduce((n, vm) => n + vm.memory, 0))}
+                      note={`${size(vms.reduce((n, vm) => n + vm.maxMemory, 0))} allocated`}
                     />
-                    <select
-                      aria-label="Filter VM status"
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                    >
-                      <option value="all">All statuses</option>
-                      <option value="running">Running</option>
-                      <option value="stopped">Stopped</option>
-                    </select>
-                    <ChevronDown size={14} />
+                    <Stat
+                      label="vCPUs"
+                      value={String(vms.reduce((n, vm) => n + vm.cpus, 0))}
+                      note="Allocated"
+                    />
                   </div>
                 </div>
-                <div className="table-scroll">
-                  <table className="vm-table">
-                    <thead>
-                      <tr>
-                        <th>Machine</th>
-                        <th>Status</th>
-                        <th>CPU</th>
-                        <th>Memory</th>
-                        <th>Uptime</th>
-                        <th>
-                          <span className="sr-only">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visible.map((vm) => (
-                        <tr
-                          key={vm.id}
-                          className={selected === vm.id ? "selected-row" : ""}
+              </section>
+              <div className="grid items-start gap-8 lg:grid-cols-3">
+                <section
+                  className="paper min-w-0 lg:col-span-2"
+                  aria-label="Machines"
+                >
+                  <div className="card-head">
+                    <div className="relative min-w-48 flex-1 sm:max-w-sm">
+                      <Search
+                        size={16}
+                        className="text-ink-muted pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                      />
+                      <input
+                        className="input pl-9"
+                        aria-label="Search virtual machines"
+                        placeholder="Search machines…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </div>
+                    <div
+                      className="segmented"
+                      role="group"
+                      aria-label="Filter VM status"
+                    >
+                      {(
+                        [
+                          ["all", "All"],
+                          ["running", "Running"],
+                          ["stopped", "Stopped"],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          key={value}
+                          aria-pressed={filter === value}
+                          className={`segmented-item py-1 ${filter === value ? "segmented-active" : "segmented-idle"}`}
+                          onClick={() => setFilter(value)}
                         >
-                          <td>
-                            <button
-                              className="machine-name"
-                              aria-label={`View ${vm.name} details`}
-                              onClick={() => setSelected(vm.id)}
-                            >
-                              <span
-                                className={`vm-icon ${vm.status !== "running" ? "vm-off" : ""}`}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="relative overflow-x-auto">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Machine</th>
+                          <th>Status</th>
+                          <th className="max-md:hidden">CPU</th>
+                          <th className="max-md:hidden">Memory</th>
+                          <th className="max-md:hidden">Uptime</th>
+                          <th>
+                            <span className="sr-only">Actions</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visible.map((vm) => (
+                          <tr
+                            key={vm.id}
+                            className={selected === vm.id ? "bg-wash" : ""}
+                          >
+                            <td>
+                              <button
+                                className="group focus-visible:outline-accent flex items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2"
+                                aria-label={`View ${vm.name} details`}
+                                onClick={() => setSelected(vm.id)}
                               >
-                                <Monitor size={20} />
-                              </span>
-                              <span>
-                                <strong>{vm.name}</strong>
-                                <small>
-                                  VM {vm.id}
-                                  <i />
-                                  {vm.node}
-                                </small>
-                              </span>
-                            </button>
-                          </td>
-                          <td>
-                            {vm.operation ? (
-                              <span className="operation-state">
-                                <Loader2 size={13} className="spin" />
-                                {actionNames[vm.operation.action]}…
-                              </span>
-                            ) : (
-                              <State value={vm.status} />
-                            )}
-                          </td>
-                          <td>
-                            <div className="metric-cell">
-                              <span>
-                                {(vm.cpu * 100).toFixed(1)}
-                                <small>%</small>
-                              </span>
-                              <div className="meter">
-                                <i
-                                  style={{
-                                    width: `${Math.min(vm.cpu * 100, 100)}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="memory-cell">
-                              <span>
-                                {gib(vm.memory).toFixed(1)}{" "}
-                                <small>
-                                  / {gib(vm.maxMemory).toFixed(0)} GiB
-                                </small>
-                              </span>
-                              <div className="meter">
-                                <i
-                                  style={{
-                                    width: `${vm.maxMemory ? Math.min((vm.memory / vm.maxMemory) * 100, 100) : 0}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="uptime-cell">{uptime(vm.uptime)}</td>
-                          <td>
-                            <div className="row-actions">
-                              {vm.permissions.includes("console") && (
-                                <button
-                                  className="console-button"
-                                  aria-label={`Open ${vm.name} console`}
-                                  title={`Open ${vm.name} console`}
-                                  disabled={
-                                    vm.status !== "running" || !!vm.operation
-                                  }
-                                  onClick={() => setConsoleVM(vm)}
-                                >
-                                  <SquareTerminal size={15} />
-                                  <span>Console</span>
-                                </button>
+                                <MachineIcon on={vm.status === "running"} />
+                                <span>
+                                  <span className="font-title text-ink group-hover:text-ink-glass block font-bold transition-colors duration-200">
+                                    {vm.name}
+                                  </span>
+                                  <span className="text-ink-muted block text-xs whitespace-nowrap">
+                                    VM {vm.id} · {vm.node}
+                                  </span>
+                                </span>
+                              </button>
+                            </td>
+                            <td>
+                              {vm.operation ? (
+                                <span className="text-ink-soft inline-flex items-center gap-2 text-sm whitespace-nowrap">
+                                  <Spinner size={13} />
+                                  {actionNames[vm.operation.action]}…
+                                </span>
+                              ) : (
+                                <State value={vm.status} />
                               )}
-                              <div className="menu-anchor">
+                            </td>
+                            <td className="max-md:hidden">
+                              <Meter
+                                value={`${(vm.cpu * 100).toFixed(1)}`}
+                                unit="%"
+                                share={vm.cpu}
+                              />
+                            </td>
+                            <td className="max-md:hidden">
+                              <Meter
+                                value={gib(vm.memory).toFixed(1)}
+                                unit={` / ${gib(vm.maxMemory).toFixed(0)} GiB`}
+                                share={
+                                  vm.maxMemory ? vm.memory / vm.maxMemory : 0
+                                }
+                              />
+                            </td>
+                            <td className="text-ink-subtle whitespace-nowrap tabular-nums max-md:hidden">
+                              {uptime(vm.uptime)}
+                            </td>
+                            <td>
+                              <div className="flex items-center justify-end gap-1">
+                                {vm.permissions.includes("console") && (
+                                  <button
+                                    className="btn-soft px-3 py-1.5"
+                                    aria-label={`Open ${vm.name} console`}
+                                    title={`Open ${vm.name} console`}
+                                    disabled={
+                                      vm.status !== "running" || !!vm.operation
+                                    }
+                                    onClick={() => setConsoleVM(vm)}
+                                  >
+                                    <SquareTerminal size={15} />
+                                    <span className="max-sm:hidden">
+                                      Console
+                                    </span>
+                                  </button>
+                                )}
                                 <button
-                                  className="icon-button"
+                                  className="btn-icon"
                                   aria-label={`Actions for ${vm.name}`}
                                   aria-expanded={menu === vm.id}
                                   onClick={(e) => {
@@ -849,14 +813,12 @@ export default function Home() {
                                 </button>
                                 {menu === vm.id && (
                                   <div
-                                    className="action-menu"
-                                    style={{
-                                      position: "fixed",
-                                      ...menuPosition,
-                                    }}
+                                    className="glass-float menu fixed"
+                                    style={menuPosition}
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <button
+                                      className="menu-item"
                                       onClick={() => {
                                         setSelected(vm.id);
                                         setMenu(null);
@@ -879,169 +841,145 @@ export default function Home() {
                                       .map((action) => (
                                         <button
                                           key={action}
+                                          className="menu-item"
                                           disabled={!canAct(vm, action)}
-                                          className={
-                                            action === "reset"
-                                              ? "danger-text"
-                                              : ""
-                                          }
                                           onClick={() =>
                                             selectAction(vm, action)
                                           }
                                         >
-                                          {action === "start" ? (
-                                            <Play size={15} />
-                                          ) : action === "shutdown" ? (
-                                            <Power size={15} />
-                                          ) : (
-                                            <RotateCcw size={15} />
-                                          )}
+                                          <ActionIcon action={action} />
                                           {actionNames[action]}
                                         </button>
                                       ))}
                                   </div>
                                 )}
                               </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!visible.length && (
-                  <div className="empty-state">
-                    <Server size={28} />
-                    <h3>
-                      {loading
-                        ? "Loading machines…"
-                        : search || filter !== "all"
-                          ? "No matching machines"
-                          : "No machines assigned"}
-                    </h3>
-                    <p>
-                      {search || filter !== "all"
-                        ? "Try another search or status."
-                        : user.role === "admin"
-                          ? "Check the service account’s VM access in Proxmox."
-                          : "Ask your administrator to assign a VM to your account."}
-                    </p>
-                    {(search || filter !== "all") && (
-                      <button
-                        className="button"
-                        onClick={() => {
-                          setSearch("");
-                          setFilter("all");
-                        }}
-                      >
-                        Clear filters
-                      </button>
-                    )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-                <div className="table-footer">
-                  <span>
-                    {visible.length} of {vms.length} machines
-                  </span>
-                  <span>
-                    <span className="tiny-dot" />
-                    {checkedAt
-                      ? `Updated ${new Date(checkedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`
-                      : "Waiting for inventory"}
-                  </span>
-                </div>
-              </section>
-              <section className="panel activity-preview">
-                <div className="section-heading">
-                  <h2>Recent activity</h2>
-                  <button
-                    className="text-button"
-                    onClick={() => setTab("activity")}
-                  >
-                    View all
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-                <EventList events={events.slice(0, 4)} compact />
-              </section>
-              <div className="page-footnote">
-                <Shield size={14} />
+                  {!visible.length && (
+                    <EmptyState
+                      icon={<Server size={26} />}
+                      title={
+                        loading
+                          ? "Loading machines…"
+                          : search || filter !== "all"
+                            ? "No matching machines"
+                            : "No machines assigned"
+                      }
+                      text={
+                        search || filter !== "all"
+                          ? "Try another search or status."
+                          : user.role === "admin"
+                            ? "Check the service account’s VM access in Proxmox."
+                            : "Ask your administrator to assign a VM to your account."
+                      }
+                    >
+                      {(search || filter !== "all") && (
+                        <button
+                          className="btn-soft"
+                          onClick={() => {
+                            setSearch("");
+                            setFilter("all");
+                          }}
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </EmptyState>
+                  )}
+                  <div className="border-rule text-ink-muted flex justify-between gap-3 border-t px-4 py-4 text-xs sm:px-6">
+                    <span>
+                      {visible.length} of {vms.length} machines
+                    </span>
+                    <span>
+                      {checkedAt
+                        ? `Updated ${new Date(checkedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`
+                        : "Waiting for inventory"}
+                    </span>
+                  </div>
+                </section>
+                <section className="paper min-w-0 pb-2">
+                  <div className="card-head">
+                    <h2 className="card-title">Recent activity</h2>
+                    <button
+                      className="btn-soft px-3 py-1.5"
+                      onClick={() => setTab("activity")}
+                    >
+                      View all
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+                  <EventList events={events.slice(0, 5)} compact />
+                </section>
+              </div>
+              <p className="footnote">
+                <Shield size={14} className="mt-0.5 shrink-0" />
                 {demo
                   ? "Changes affect demo data only. No Proxmox server is connected."
                   : "Actions are checked against your VM permissions and recorded in the audit log."}
-              </div>
+              </p>
             </>
           )}
           {tab === "members" && user.role === "admin" && (
             <>
-              <div className="page-heading">
-                <div>
-                  <h1>Members</h1>
-                  <p>Choose who can access your virtual machines.</p>
-                </div>
+              <PageHeading
+                title="Members"
+                subtitle="Choose who can access your virtual machines."
+              >
                 <button
-                  className="button primary"
+                  className="btn-solid"
                   onClick={() => setNewMember(true)}
                 >
                   <Plus size={16} />
                   Add member
                 </button>
-              </div>
-              <section className="panel">
-                <div className="section-heading">
-                  <h2>
-                    Workspace members{" "}
-                    <span className="count-label">{members.length}</span>
+              </PageHeading>
+              <section className="paper min-w-0 pb-2">
+                <div className="card-head">
+                  <h2 className="card-title">
+                    Workspace members
+                    <span className="chip">{members.length}</span>
                   </h2>
-                  <span className="muted">
+                  <span className="text-ink-muted text-sm">
                     {members.filter((m) => m.enabled).length} active
                   </span>
                 </div>
-                <div className="table-scroll">
-                  <table className="members-table">
+                <div className="relative overflow-x-auto">
+                  <table className="data-table">
                     <thead>
                       <tr>
                         <th>Member</th>
-                        <th>Role</th>
+                        <th className="max-md:hidden">Role</th>
                         <th>Access</th>
-                        <th>Status</th>
-                        <th />
+                        <th className="max-md:hidden">Status</th>
+                        <th>
+                          <span className="sr-only">Actions</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {members.map((member) => (
                         <tr key={member.id}>
                           <td>
-                            <div className="person">
-                              <span className="avatar">
-                                {initials(member.name)}
-                              </span>
-                              <div>
-                                <strong>
-                                  {member.name}
-                                  {member.id === user.id && (
-                                    <small className="you">You</small>
-                                  )}
-                                </strong>
-                                {member.email ? (
-                                  <small>{member.email}</small>
-                                ) : (
-                                  <small>
-                                    <span className="chat-badge">Chat only</span>
-                                  </small>
-                                )}
-                              </div>
-                            </div>
+                            <Person
+                              name={member.name}
+                              detail={member.email}
+                              you={member.id === user.id}
+                            />
                           </td>
-                          <td>
-                            <span className={`role ${member.role}`}>
+                          <td className="max-md:hidden">
+                            <span className="chip">
                               {member.role === "admin" && <Shield size={12} />}
                               {member.role === "admin"
                                 ? "Administrator"
                                 : "Member"}
                             </span>
                           </td>
-                          <td className="muted">
+                          <td className="text-ink-subtle whitespace-nowrap">
                             {member.role === "admin"
                               ? "All managed VMs"
                               : `${
@@ -1053,20 +991,22 @@ export default function Home() {
                                   ).length
                                 } machines`}
                           </td>
-                          <td>
-                            <span
-                              className={`state ${member.enabled ? "state-running" : "state-stopped"}`}
-                            >
-                              <i />
+                          <td className="max-md:hidden">
+                            <span className="text-ink-soft inline-flex items-center gap-2 text-sm whitespace-nowrap">
+                              <i
+                                className={`state-dot ${member.enabled ? "state-on" : "state-off"}`}
+                              />
                               {member.enabled ? "Active" : "Disabled / pending"}
                             </span>
                           </td>
-                          <td>
+                          <td className="text-right">
                             <button
-                              className="button small"
+                              className="btn-soft px-3 py-1.5"
                               onClick={() => setEditMember(member)}
                             >
-                              Manage access
+                              <span className="max-sm:sr-only">
+                                Manage access
+                              </span>
                               <ChevronRight size={13} />
                             </button>
                           </td>
@@ -1100,69 +1040,73 @@ export default function Home() {
           )}
           {tab === "activity" && (
             <>
-              <div className="page-heading">
-                <div>
-                  <h1>Activity</h1>
-                  <p>
-                    {user.role === "admin"
-                      ? "Power actions, console sessions, and access changes across the workspace."
-                      : "Your recent requests and their outcomes."}
-                  </p>
-                </div>
+              <PageHeading
+                title="Activity"
+                subtitle={
+                  user.role === "admin"
+                    ? "Power actions, console sessions, and access changes across the workspace."
+                    : "Your recent requests and their outcomes."
+                }
+              >
                 <button
-                  className="button"
+                  className="btn-soft"
                   onClick={() => refresh(user)}
                   disabled={loading}
                 >
-                  <RefreshCw size={15} className={loading ? "spin" : ""} />
+                  <RefreshCw
+                    size={15}
+                    className={loading ? "motion-safe:animate-spin" : ""}
+                  />
                   Refresh
                 </button>
-              </div>
-              <section className="panel">
-                <div className="section-heading">
-                  <h2>Audit log</h2>
-                  <span className="muted">Latest {events.length} events</span>
+              </PageHeading>
+              <section className="paper min-w-0 pb-2">
+                <div className="card-head">
+                  <h2 className="card-title">Audit log</h2>
+                  <span className="text-ink-muted text-sm">
+                    Latest {events.length} events
+                  </span>
                 </div>
                 <EventList events={events} />
               </section>
             </>
           )}
-        </main>
-      </div>
+        </div>
+      </main>
       {selectedVM && (
         <div
-          className="drawer-backdrop"
+          className="scrim sm:items-stretch sm:justify-end"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setSelected(null);
           }}
         >
           <aside
-            className="detail-drawer"
+            className="paper dialog sm:max-w-md"
             role="dialog"
             aria-modal="true"
             aria-label={`${selectedVM.name} details`}
           >
-            <div className="drawer-top">
-              <span>Machine details</span>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-ink-muted text-sm">Machine details</span>
               <button
-                className="icon-button"
+                className="btn-icon -mr-2"
                 aria-label="Close machine details"
                 onClick={() => setSelected(null)}
               >
                 <X size={19} />
               </button>
             </div>
-            <div className="drawer-title">
-              <span className="vm-icon large">
-                <Monitor size={26} />
-              </span>
-              <h2>{selectedVM.name}</h2>
+            <div className="mt-4 flex items-center gap-3">
+              <MachineIcon on={selectedVM.status === "running"} />
+              <h2 className="card-title min-w-0 flex-1 break-words">
+                {selectedVM.name}
+              </h2>
               <State value={selectedVM.status} />
             </div>
-            <div className="detail-actions">
+            <div className="mt-5 flex flex-wrap gap-2">
               {selectedVM.permissions.includes("console") && (
                 <button
-                  className="button primary"
+                  className="btn-solid"
                   disabled={
                     selectedVM.status !== "running" || !!selectedVM.operation
                   }
@@ -1185,7 +1129,7 @@ export default function Home() {
                 )
                 .map((action) => (
                   <button
-                    className={`button ${action === "reset" ? "danger-text" : ""}`}
+                    className="btn-soft"
                     disabled={!canAct(selectedVM, action)}
                     key={action}
                     onClick={() => {
@@ -1193,22 +1137,18 @@ export default function Home() {
                       setSelected(null);
                     }}
                   >
-                    {action === "start" ? (
-                      <Play size={14} />
-                    ) : (
-                      <RotateCcw size={14} />
-                    )}
+                    <ActionIcon action={action} />
                     {actionNames[action]}
                   </button>
                 ))}
             </div>
             {selectedVM.operation && (
-              <div className="inline-note">
-                <Loader2 size={16} className="spin" />
+              <div className="notice mt-4 items-center">
+                <Spinner size={16} />
                 {actionNames[selectedVM.operation.action]} in progress
               </div>
             )}
-            <h3 className="detail-section-title">Overview</h3>
+            <SectionLabel>Overview</SectionLabel>
             <dl className="details">
               <div>
                 <dt>VM ID</dt>
@@ -1243,20 +1183,20 @@ export default function Home() {
             </dl>
             {!!selectedVM.tags.length && (
               <>
-                <h3 className="detail-section-title">Tags</h3>
-                <div className="tag-list">
+                <SectionLabel>Tags</SectionLabel>
+                <div className="flex flex-wrap gap-1.5">
                   {selectedVM.tags.map((tag) => (
-                    <span className="tag" key={tag}>
+                    <span className="chip" key={tag}>
                       {tag}
                     </span>
                   ))}
                 </div>
               </>
             )}
-            <h3 className="detail-section-title">Your permissions</h3>
-            <div className="tag-list">
+            <SectionLabel>Your permissions</SectionLabel>
+            <div className="flex flex-wrap gap-1.5">
               {selectedVM.permissions.map((p) => (
-                <span className="permission-tag" key={p}>
+                <span className="chip" key={p}>
                   <Check size={12} />
                   {permissionNames[p]}
                 </span>
@@ -1270,17 +1210,9 @@ export default function Home() {
           title={`${actionNames[confirm.action]} ${confirm.vm.name}?`}
           onClose={closeModal}
         >
-          <div
-            className={`confirm-icon ${confirm.action === "reset" ? "danger" : ""}`}
-          >
-            {confirm.action === "shutdown" ? (
-              <Power size={25} />
-            ) : confirm.action === "start" ? (
-              <Play size={25} />
-            ) : (
-              <RotateCcw size={25} />
-            )}
-          </div>
+          <DialogIcon>
+            <ActionIcon action={confirm.action} size={24} />
+          </DialogIcon>
           <p className="dialog-copy">
             {confirm.action === "start"
               ? "The VM will boot. You can open its console once it is running."
@@ -1290,26 +1222,18 @@ export default function Home() {
                   ? "The guest operating system will be asked to shut down. The VM will stay off until someone starts it."
                   : "This immediately resets the virtual hardware. Unsaved work can be lost and filesystem corruption is possible."}
           </p>
-          <div className="confirm-target">
-            <Monitor size={17} />
-            <strong>{confirm.vm.name}</strong>
-            <span>
-              VM {confirm.vm.id} · {confirm.vm.node}
-            </span>
-          </div>
-          <div className="modal-footer">
-            <button className="button" onClick={closeModal} disabled={busy}>
+          <Target icon={<Monitor size={17} />} name={confirm.vm.name}>
+            VM {confirm.vm.id} · {confirm.vm.node}
+          </Target>
+          <DialogFooter>
+            <button className="btn-soft" onClick={closeModal} disabled={busy}>
               Cancel
             </button>
-            <button
-              className={`button ${confirm.action === "reset" ? "destructive" : "primary"}`}
-              onClick={doAction}
-              disabled={busy}
-            >
-              {busy && <Loader2 size={15} className="spin" />}
+            <button className="btn-solid" onClick={doAction} disabled={busy}>
+              {busy && <Spinner />}
               {busy ? "Submitting…" : `${actionNames[confirm.action]} VM`}
             </button>
-          </div>
+          </DialogFooter>
         </Modal>
       )}
       {consoleVM && <ConsoleModal vm={consoleVM} onClose={closeModal} />}
@@ -1378,13 +1302,17 @@ export default function Home() {
       )}
       {toast && (
         <div
-          className={`toast ${toast.error ? "toast-error" : ""}`}
+          className="glass-float text-ink-glass fixed right-4 bottom-4 left-4 z-50 flex items-center gap-3 py-2 pr-2 pl-4 text-sm sm:left-auto sm:max-w-sm"
           role={toast.error ? "alert" : "status"}
         >
-          {toast.error ? <XCircle size={19} /> : <CheckCircle2 size={19} />}
-          <span>{toast.message}</span>
+          {toast.error ? (
+            <XCircle size={18} className="shrink-0" />
+          ) : (
+            <CheckCircle2 size={18} className="shrink-0" />
+          )}
+          <span className="flex-1">{toast.message}</span>
           <button
-            className="icon-button"
+            className="btn-icon"
             aria-label="Dismiss notification"
             onClick={() => setToast(null)}
           >
@@ -1396,25 +1324,168 @@ export default function Home() {
   );
 }
 
-function Stat({
+function PageHeading({
   title,
-  value,
   subtitle,
-  icon,
+  children,
 }: {
   title: string;
-  value: string;
-  subtitle: ReactNode;
-  icon: ReactNode;
+  subtitle?: string;
+  children?: ReactNode;
 }) {
   return (
-    <div className="stat-card">
-      <div className="stat-top">
-        <span>{title}</span>
-        <span className="stat-icon">{icon}</span>
+    <div className="flex flex-wrap items-end justify-between gap-4 px-4 sm:px-0">
+      <div>
+        <h1 className="page-title">{title}</h1>
+        {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
-      <strong>{value}</strong>
-      <div className="stat-bottom">{subtitle}</div>
+      {children && <div className="flex items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <h3 className="font-title text-ink-muted mt-7 mb-3 text-xs font-semibold tracking-wide uppercase">
+      {children}
+    </h3>
+  );
+}
+function MachineIcon({ on }: { on: boolean }) {
+  return (
+    <span
+      className={`inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-black/5 ${on ? "text-ink-glass" : "text-ink-faint"}`}
+    >
+      <Monitor size={18} />
+    </span>
+  );
+}
+function ActionIcon({ action, size = 15 }: { action: Action; size?: number }) {
+  return action === "start" ? (
+    <Play size={size} />
+  ) : action === "shutdown" ? (
+    <Power size={size} />
+  ) : (
+    <RotateCcw size={size} />
+  );
+}
+function Meter({
+  value,
+  unit,
+  share,
+}: {
+  value: string;
+  unit: string;
+  share: number;
+}) {
+  return (
+    <div className="w-28">
+      <span className="text-ink tabular-nums">
+        {value}
+        <span className="text-ink-muted text-xs">{unit}</span>
+      </span>
+      <div className="rank-track">
+        <div
+          className="rank-fill bg-series-total"
+          style={{ width: `${Math.min(share * 100, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+function Person({
+  name,
+  detail,
+  you = false,
+}: {
+  name: string;
+  /** An email or handle; null marks a chat-only member. */
+  detail: ReactNode | null;
+  you?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="initials">{initials(name)}</span>
+      <div className="min-w-0">
+        <p className="text-ink flex items-center gap-2 font-medium whitespace-nowrap">
+          {name}
+          {you && <span className="chip">You</span>}
+        </p>
+        <p className="text-ink-muted text-xs">
+          {detail ?? <span className="chip">Chat only</span>}
+        </p>
+      </div>
+    </div>
+  );
+}
+function EmptyState({
+  icon,
+  title,
+  text,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  text?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="text-ink-faint flex flex-col items-center gap-2 px-6 py-12 text-center">
+      {icon}
+      <h3 className="font-title text-ink-glass mt-1 text-base font-bold">
+        {title}
+      </h3>
+      {text && <p className="text-ink-muted text-sm">{text}</p>}
+      {children && <div className="mt-2">{children}</div>}
+    </div>
+  );
+}
+function DialogIcon({ children }: { children: ReactNode }) {
+  return (
+    <div className="text-ink-glass mb-4 inline-flex size-12 items-center justify-center rounded-2xl bg-black/5">
+      {children}
+    </div>
+  );
+}
+/** The object a dialog acts on, set apart from the explanation. */
+function Target({
+  icon,
+  name,
+  children,
+}: {
+  icon: ReactNode;
+  name: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="text-ink-subtle mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-black/5 px-4 py-3 text-sm">
+      {icon}
+      <strong className="text-ink font-medium">{name}</strong>
+      {children && <span>{children}</span>}
+    </div>
+  );
+}
+function DialogFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+      {children}
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+}) {
+  return (
+    <div className="stat">
+      <p className="stat-label">{label}</p>
+      <p className="stat-value">{value}</p>
+      {note && <p className="stat-note">{note}</p>}
     </div>
   );
 }
@@ -1425,46 +1496,64 @@ function EventList({
   events: Audit[];
   compact?: boolean;
 }) {
+  if (!events.length)
+    return (
+      <EmptyState
+        icon={<Clock3 size={26} />}
+        title="No activity yet"
+        text="Your requests and access changes will appear here."
+      />
+    );
   return (
-    <div className={compact ? "events compact-events" : "events"}>
-      {events.length ? (
-        events.map((event) => (
-          <div className="event" key={event.id}>
-            <span
-              className={`event-icon ${event.action.includes("failed") || event.action.includes("unknown") ? "event-error" : ""}`}
-            >
-              {event.action.includes("console") ? (
-                <SquareTerminal size={16} />
-              ) : event.action.includes("access") ||
-                event.action.includes("account") ||
-                event.action.includes("administrator") ? (
-                <Shield size={16} />
-              ) : event.action.includes("succeeded") ? (
-                <Check size={16} />
-              ) : (
-                <Activity size={16} />
-              )}
-            </span>
-            <div className="event-content">
-              <strong>
-                {event.action} <span>·</span> {event.target}
-              </strong>
-              <p>
-                {event.userName}
-                {!compact && event.detail && <> · {event.detail}</>}
-              </p>
-            </div>
-            <time dateTime={event.createdAt}>{time(event.createdAt)}</time>
+    <ul>
+      {events.map((event) => (
+        <li
+          className="border-rule flex items-start gap-3 border-t px-4 py-3 first:border-t-0 sm:px-6"
+          key={event.id}
+        >
+          <EventIcon>
+            {event.action.includes("failed") ||
+            event.action.includes("unknown") ? (
+              <TriangleAlert size={15} />
+            ) : event.action.includes("console") ? (
+              <SquareTerminal size={15} />
+            ) : event.action.includes("access") ||
+              event.action.includes("account") ||
+              event.action.includes("administrator") ? (
+              <Shield size={15} />
+            ) : event.action.includes("succeeded") ? (
+              <Check size={15} />
+            ) : (
+              <Activity size={15} />
+            )}
+          </EventIcon>
+          <div className="min-w-0 flex-1">
+            <p className="text-ink text-sm break-words">
+              <span className="font-medium">{event.action}</span>
+              <span className="text-ink-faint"> · </span>
+              {event.target}
+            </p>
+            <p className="text-ink-muted text-xs break-words">
+              {event.userName}
+              {!compact && event.detail && <> · {event.detail}</>}
+            </p>
           </div>
-        ))
-      ) : (
-        <div className="empty-state">
-          <Clock3 size={26} />
-          <h3>No activity yet</h3>
-          <p>Your requests and access changes will appear here.</p>
-        </div>
-      )}
-    </div>
+          <time
+            className="text-ink-muted shrink-0 pt-0.5 text-xs whitespace-nowrap"
+            dateTime={event.createdAt}
+          >
+            {time(event.createdAt)}
+          </time>
+        </li>
+      ))}
+    </ul>
+  );
+}
+function EventIcon({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-ink-subtle inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-black/5">
+      {children}
+    </span>
   );
 }
 
@@ -1562,63 +1651,71 @@ function ChatPanel({
     info?.identities.find((i) => i.platform === platform && i.userRef === ref);
   return (
     <>
-      <div className="page-heading">
-        <div>
-          <h1>Chat</h1>
-        </div>
-        <button className="button" onClick={load} disabled={loading}>
-          <RefreshCw size={15} className={loading ? "spin" : ""} />
+      <PageHeading title="Chat">
+        <button className="btn-soft" onClick={load} disabled={loading}>
+          <RefreshCw
+            size={15}
+            className={loading ? "motion-safe:animate-spin" : ""}
+          />
           Refresh
         </button>
-      </div>
+      </PageHeading>
       {info && !info.adapters.length && (
-        <div className="inline-note">
+        <div className="notice mx-4 sm:mx-0">
           <MessageSquare size={17} />
           No chat bot is configured. Set the Slack or Discord settings described
           in docs/chat.md, then restart the service.
         </div>
       )}
       {info?.adapters.map((adapter) => (
-        <div key={adapter.id}>
+        <div key={adapter.id} className="flex flex-col gap-4">
           {adapter.state !== "connected" && (
-            <div className="error-banner" role="alert">
+            <div className="notice mx-4 items-center sm:mx-0" role="alert">
               <XCircle size={18} />
-              <span>
+              <span className="flex-1">
                 The bot is not connected to {adapter.label}
                 {adapter.lastError ? `: ${adapter.lastError}` : "."}
               </span>
-              <button onClick={load}>Retry</button>
+              <button className="btn-soft px-3 py-1.5" onClick={load}>
+                Retry
+              </button>
             </div>
           )}
           {adapter.membersError && (
-            <div className="error-banner" role="alert">
+            <div className="notice mx-4 items-center sm:mx-0" role="alert">
               <XCircle size={18} />
-              <span>{adapter.membersError}</span>
-              <button onClick={load}>Retry</button>
+              <span className="flex-1">{adapter.membersError}</span>
+              <button className="btn-soft px-3 py-1.5" onClick={load}>
+                Retry
+              </button>
             </div>
           )}
-          {adapter.directory && (
-            <section className="panel">
-              <div className="section-heading">
-                <h2>
-                  <span>{`${adapter.label} members`}</span>
-                  <span className="count-label">{adapter.members.length}</span>
-                </h2>
-                <span className="muted">
-                  {info.demo
-                    ? `Demo directory · no ${adapter.label} workspace connected`
-                    : adapter.state === "connected"
-                      ? `Bot connected · ${adapter.conversations.join(", ")}`
-                      : adapter.conversations.join(", ")}
-                </span>
-              </div>
-              <div className="table-scroll">
-                <table className="members-table chat-table">
+          <section className="paper min-w-0 pb-2">
+            <div className="card-head">
+              <h2 className="card-title">
+                {adapter.directory ? `${adapter.label} members` : adapter.label}
+                {adapter.directory && (
+                  <span className="chip">{adapter.members.length}</span>
+                )}
+              </h2>
+              <span className="text-ink-muted text-sm">
+                {adapter.directory && info.demo
+                  ? `Demo directory · no ${adapter.label} workspace connected`
+                  : adapter.state === "connected"
+                    ? `Bot connected · ${adapter.conversations.join(", ")}`
+                    : adapter.conversations.join(", ")}
+              </span>
+            </div>
+            {adapter.directory ? (
+              <div className="relative overflow-x-auto">
+                <table className="data-table">
                   <thead>
                     <tr>
                       <th>{adapter.label} user</th>
                       <th>Proxdesk account</th>
-                      <th />
+                      <th>
+                        <span className="sr-only">Actions</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1628,27 +1725,22 @@ function ChatPanel({
                       return (
                         <tr key={member.ref}>
                           <td>
-                            <div className="person">
-                              <span className="avatar">
-                                {initials(member.name)}
-                              </span>
-                              <div>
-                                <strong>{member.name}</strong>
-                                <small>@{member.handle}</small>
-                              </div>
-                            </div>
+                            <Person
+                              name={member.name}
+                              detail={`@${member.handle}`}
+                            />
                           </td>
                           <td>
-                            <div className="filter-control">
+                            <div className="select min-w-56 sm:max-w-sm">
                               <select
+                                className="input"
                                 aria-label={`Account for ${member.name}`}
                                 value={current?.userId ?? ""}
                                 disabled={busy}
                                 onChange={(e) =>
                                   e.target.value
                                     ? link(adapter.id, member, e.target.value)
-                                    : current &&
-                                      unlink(current, member.name)
+                                    : current && unlink(current, member.name)
                                 }
                               >
                                 <option value="">Not linked</option>
@@ -1661,10 +1753,10 @@ function ChatPanel({
                               <ChevronDown size={14} />
                             </div>
                           </td>
-                          <td>
+                          <td className="text-right">
                             {!current && (
                               <button
-                                className="button small"
+                                className="btn-soft px-3 py-1.5"
                                 disabled={busy}
                                 onClick={() => create(adapter.id, member)}
                               >
@@ -1679,79 +1771,59 @@ function ChatPanel({
                   </tbody>
                 </table>
               </div>
-            </section>
-          )}
-          {!adapter.directory && (
-            <section className="panel">
-              <div className="section-heading">
-                <h2>
-                  <span>{adapter.label}</span>
-                </h2>
-                <span className="muted">
-                  {adapter.state === "connected"
-                    ? `Bot connected · ${adapter.conversations.join(", ")}`
-                    : adapter.conversations.join(", ")}
-                </span>
-              </div>
-              <div className="panel-body">
-                <p className="muted">
-                  {adapter.label} does not let the bot list its members, so
-                  people link themselves: they mention the bot with
-                  &ldquo;link&rdquo; and open the link it sends. Their links
-                  appear under Linked chat accounts.
-                </p>
-              </div>
-            </section>
-          )}
+            ) : (
+              <p className="font-article text-ink-subtle px-4 pb-4 text-sm leading-relaxed sm:px-6">
+                {adapter.label} does not let the bot list its members, so people
+                link themselves: they mention the bot with &ldquo;link&rdquo;
+                and open the link it sends. Their links appear under Linked chat
+                accounts.
+              </p>
+            )}
+          </section>
         </div>
       ))}
       {info && (
-        <section className="panel">
-          <div className="section-heading">
-            <h2>
-              <span>Linked chat accounts</span>
-              <span className="count-label">{info.identities.length}</span>
+        <section className="paper min-w-0 pb-2">
+          <div className="card-head">
+            <h2 className="card-title">
+              Linked chat accounts
+              <span className="chip">{info.identities.length}</span>
             </h2>
           </div>
           {info.identities.length ? (
-            <div className="table-scroll">
-              <table className="members-table chat-table">
+            <div className="relative overflow-x-auto">
+              <table className="data-table">
                 <thead>
                   <tr>
                     <th>Chat account</th>
                     <th>Proxdesk account</th>
-                    <th />
+                    <th>
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {info.identities.map((i) => (
                     <tr key={`${i.platform}:${i.userRef}`}>
                       <td>
-                        <div className="person">
-                          <span className="avatar">
-                            {initials(i.displayName)}
-                          </span>
-                          <div>
-                            <strong>{i.displayName}</strong>
-                            <small>
-                              {i.platformLabel} · {i.userRef}
-                            </small>
-                          </div>
-                        </div>
+                        <Person
+                          name={i.displayName}
+                          detail={`${i.platformLabel} · ${i.userRef}`}
+                        />
                       </td>
                       <td>
-                        <div className="person-text">
-                          <strong>{i.userName}</strong>
-                          <small>
-                            {i.userEmail ?? (
-                              <span className="chat-badge">Chat only</span>
-                            )}
-                          </small>
-                        </div>
+                        <p className="text-ink font-medium whitespace-nowrap">
+                          {i.userName}
+                        </p>
+                        <p className="text-ink-muted text-xs">
+                          {i.userEmail ?? (
+                            <span className="chip">Chat only</span>
+                          )}
+                        </p>
                       </td>
-                      <td>
+                      <td className="text-right">
                         <button
-                          className="button small"
+                          className="btn-soft px-3 py-1.5"
                           aria-label={`Unlink ${i.displayName}`}
                           disabled={saving === `${i.platform}:${i.userRef}`}
                           onClick={() => unlink(i, i.displayName)}
@@ -1766,22 +1838,19 @@ function ChatPanel({
               </table>
             </div>
           ) : (
-            <div className="empty-state">
-              <MessageSquare size={26} />
-              <h3>No linked chat accounts</h3>
-              <p>
-                Link a member above, or ask people to mention the bot with
-                &ldquo;link&rdquo;.
-              </p>
-            </div>
+            <EmptyState
+              icon={<MessageSquare size={26} />}
+              title="No linked chat accounts"
+              text="Link a member above, or ask people to mention the bot with “link”."
+            />
           )}
         </section>
       )}
-      <div className="page-footnote">
-        <Shield size={14} />
+      <p className="footnote">
+        <Shield size={14} className="mt-0.5 shrink-0" />
         The bot acts with the linked member&apos;s VM permissions. Chat-only
         members cannot sign in; grant their VMs under Members.
-      </div>
+      </p>
     </>
   );
 }
@@ -1814,21 +1883,29 @@ function ChatAccounts({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Chat accounts" onClose={onClose}>
       {error && (
-        <div className="form-error" role="alert">
+        <div className="notice mb-4" role="alert">
+          <XCircle size={17} />
           {error}
         </div>
       )}
       {identities === null && !error ? (
-        <Loader2 className="spin" size={18} />
+        <div className="text-ink-muted py-4">
+          <Spinner size={18} />
+        </div>
       ) : identities?.length ? (
-        <div className="identity-list">
+        <div className="flex flex-col gap-2">
           {identities.map((i) => (
-            <div className="confirm-target" key={`${i.platform}:${i.userRef}`}>
-              <MessageSquare size={17} />
-              <strong>{i.displayName}</strong>
-              <span>{i.platformLabel}</span>
+            <div
+              className="flex items-center gap-3 rounded-2xl bg-black/5 py-2 pr-2 pl-4 text-sm"
+              key={`${i.platform}:${i.userRef}`}
+            >
+              <MessageSquare size={17} className="text-ink-subtle shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-ink font-medium">{i.displayName}</p>
+                <p className="text-ink-muted text-xs">{i.platformLabel}</p>
+              </div>
               <button
-                className="button small"
+                className="btn-soft bg-white px-3 py-1.5"
                 aria-label={`Unlink ${i.displayName}`}
                 disabled={busy === `${i.platform}:${i.userRef}`}
                 onClick={() => unlink(i)}
@@ -1842,16 +1919,16 @@ function ChatAccounts({ onClose }: { onClose: () => void }) {
       ) : (
         <p className="dialog-copy">No chat accounts are linked to you.</p>
       )}
-      <p className="form-note">
+      <p className="form-note mt-4">
         The bot acts for a linked chat account with your VM permissions. To link
         one, mention the bot with &ldquo;link&rdquo; and open the link it sends
         you.
       </p>
-      <div className="modal-footer">
-        <button className="button" onClick={onClose}>
+      <DialogFooter>
+        <button className="btn-soft" onClick={onClose}>
           Close
         </button>
-      </div>
+      </DialogFooter>
     </Modal>
   );
 }
@@ -1895,108 +1972,128 @@ function LinkAccount({ code, user }: { code: string; user: User }) {
   // user only by username and ID, which the person cannot choose freely.
   const who = preview && (
     <>
-      {preview.handle && <strong>@{preview.handle}</strong>}
+      {preview.handle && (
+        <strong className="text-ink">@{preview.handle}</strong>
+      )}
       {preview.handle ? " (ID " : "ID "}
-      <code>{preview.userRef}</code>
+      <code className="text-ink rounded-md bg-black/5 px-1 font-mono text-sm">
+        {preview.userRef}
+      </code>
       {preview.handle && ")"}
     </>
   );
   return (
-    <div className="login-page">
-      <div className="login-brand brand">
-        <span className="brand-mark">
-          <Layers3 size={22} />
-        </span>
-        Prox<span>desk</span>
-      </div>
-      <div className="login-card">
-        <div className="login-icon">
-          <Link2 size={26} />
-        </div>
-        <h1>Link chat account</h1>
-        {done ? (
-          <p className="login-description">
-            {label} user {who} is linked to your account. Mention the bot in{" "}
-            {label} to manage your VMs.
-          </p>
-        ) : preview ? (
-          <p className="login-description">
-            Link {label} user {who} to your account?
-          </p>
-        ) : (
-          !error && <Loader2 className="spin" size={18} />
-        )}
-        {error && (
-          <div className="form-error" role="alert">
-            {error}
+    <AuthPage icon={<Link2 size={20} />} title="Link chat account">
+      {done ? (
+        <p className="page-subtitle">
+          {label} user {who} is linked to your account. Mention the bot in{" "}
+          {label} to manage your VMs.
+        </p>
+      ) : preview ? (
+        <p className="page-subtitle">
+          Link {label} user {who} to your account?
+        </p>
+      ) : (
+        !error && (
+          <div className="text-ink-muted mt-4">
+            <Spinner size={18} />
           </div>
-        )}
-        {preview && !done && (
-          <>
-            <div className="confirm-target">
-              <Users size={17} />
-              <strong>{user.name}</strong>
-              <span>{user.email}</span>
-            </div>
-            {preview.linked !== "self" && (
-              <p className="link-warning" role="note">
-                <TriangleAlert size={16} />
-                <span>
-                  Only confirm if you just asked the bot for this link
-                  yourself. If someone sent it to you, cancel: linking gives
-                  their {label} account your access.
-                </span>
-              </p>
-            )}
-            {preview.linked === "self" ? (
-              <p className="form-note link-note">
-                This {label} user is already linked to your account.
-              </p>
-            ) : (
-              <p className="form-note link-note">
-                The bot will act for this {label} user with your VM
-                permissions, including power actions.
-              </p>
-            )}
-            {preview.linked === "other" && (
-              <label className="check-row">
-                <input
-                  type="checkbox"
-                  checked={move}
-                  onChange={(e) => setMove(e.target.checked)}
-                />
-                This {label} user is linked to another Proxdesk account. Move it
-                to mine.
-              </label>
-            )}
-            <div className="modal-footer">
-              <a className="button" href="/">
-                Cancel
-              </a>
-              <button
-                className="button primary"
-                disabled={
-                  busy ||
-                  preview.linked === "self" ||
-                  (preview.linked === "other" && !move)
-                }
-                onClick={confirm}
-              >
-                {busy && <Loader2 size={15} className="spin" />}
-                Link account
-              </button>
-            </div>
-          </>
-        )}
-        {(done || (error && !preview)) && (
-          <a className="button primary login-submit" href="/">
-            Continue to Proxdesk
-            <ArrowRight size={16} />
-          </a>
-        )}
+        )
+      )}
+      {error && (
+        <div className="notice mt-5" role="alert">
+          <XCircle size={17} />
+          {error}
+        </div>
+      )}
+      {preview && !done && (
+        <>
+          <Target icon={<Users size={17} />} name={user.name}>
+            {user.email}
+          </Target>
+          {preview.linked !== "self" && (
+            <p className="notice mt-4" role="note">
+              <TriangleAlert size={16} />
+              <span>
+                Only confirm if you just asked the bot for this link yourself.
+                If someone sent it to you, cancel: linking gives their {label}{" "}
+                account your access.
+              </span>
+            </p>
+          )}
+          <p className="form-note mt-4">
+            {preview.linked === "self"
+              ? `This ${label} user is already linked to your account.`
+              : `The bot will act for this ${label} user with your VM permissions, including power actions.`}
+          </p>
+          {preview.linked === "other" && (
+            <label className="check mt-4">
+              <input
+                type="checkbox"
+                checked={move}
+                onChange={(e) => setMove(e.target.checked)}
+              />
+              This {label} user is linked to another Proxdesk account. Move it
+              to mine.
+            </label>
+          )}
+          <DialogFooter>
+            <a className="btn-glass" href="/">
+              Cancel
+            </a>
+            <button
+              className="btn-solid"
+              disabled={
+                busy ||
+                preview.linked === "self" ||
+                (preview.linked === "other" && !move)
+              }
+              onClick={confirm}
+            >
+              {busy && <Spinner />}
+              Link account
+            </button>
+          </DialogFooter>
+        </>
+      )}
+      {(done || (error && !preview)) && (
+        <a className="btn-solid mt-6 w-full" href="/">
+          Continue to Proxdesk
+          <ArrowRight size={16} />
+        </a>
+      )}
+    </AuthPage>
+  );
+}
+
+/** Centered identity card for the pages shown before the portal. */
+function AuthPage({
+  icon,
+  title,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <main className="text-ink flex min-h-dvh flex-col items-center justify-center gap-6 py-10 sm:px-4">
+      <p className="font-title text-2xl font-semibold text-black">Proxdesk</p>
+      <div className="glass-card w-full p-6 max-sm:rounded-none sm:max-w-md lg:p-8">
+        <div className="glass-tint from-blue-100/30 via-purple-50/20 to-pink-100/30" />
+        <div className="glow-blob top-4 left-4 h-24 w-24 from-blue-200/20 to-cyan-200/20 blur-xl" />
+        <div className="glow-blob right-6 bottom-4 h-20 w-20 from-purple-200/15 to-pink-200/15 blur-lg" />
+        <div className="glow-blob top-8 right-4 h-16 w-16 from-yellow-200/15 to-orange-200/15 blur-lg" />
+        <div className="glass-shine" />
+        <div className="relative z-10">
+          <span className="icon-tile bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-blue-600">
+            {icon}
+          </span>
+          <h1 className="page-title mt-4">{title}</h1>
+          {children}
+        </div>
       </div>
-      <div className="login-footer">Proxdesk · VM self-service</div>
-    </div>
+    </main>
   );
 }
 
@@ -2106,271 +2203,292 @@ function SettingsPanel({
   const latest = info?.backups.files[0];
   return (
     <>
-      <div className="page-heading">
-        <div>
-          <h1>Settings</h1>
-        </div>
-      </div>
-      <section className="panel settings-panel">
-        <div className="section-heading">
-          <h2>Workspace</h2>
-        </div>
-        <form
-          className="panel-body"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void save("workspace", {
-              workspaceName: name,
-              scope:
-                scopeType === "pool"
-                  ? { type: "pool", pool: scopeValue }
-                  : scopeType === "tag"
-                    ? { type: "tag", tag: scopeValue }
-                    : { type: "all" },
-            });
-          }}
-        >
-          <label className="field">
-            Workspace name
-            <input
-              required
-              maxLength={60}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={!info}
-            />
-          </label>
-          <div className="two-fields">
+      <PageHeading title="Settings" />
+      <div className="grid items-start gap-8 lg:grid-cols-2">
+        <section className="paper min-w-0">
+          <div className="card-head">
+            <h2 className="card-title">Workspace</h2>
+          </div>
+          <form
+            className="flex flex-col gap-4 px-4 pb-6 sm:px-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void save("workspace", {
+                workspaceName: name,
+                scope:
+                  scopeType === "pool"
+                    ? { type: "pool", pool: scopeValue }
+                    : scopeType === "tag"
+                      ? { type: "tag", tag: scopeValue }
+                      : { type: "all" },
+              });
+            }}
+          >
             <label className="field">
-              Managed VMs
-              <select
-                value={scopeType}
+              Workspace name
+              <input
+                className="input"
+                required
+                maxLength={60}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 disabled={!info}
-                onChange={(e) =>
-                  setScopeType(e.target.value as "all" | "pool" | "tag")
-                }
-              >
-                <option value="all">All VMs the token can see</option>
-                <option value="pool">VMs in a pool</option>
-                <option value="tag">VMs with a tag</option>
-              </select>
+              />
             </label>
-            {scopeType !== "all" && (
+            <div className="grid gap-4 sm:grid-cols-2">
               <label className="field">
-                {scopeType === "pool" ? "Pool" : "Tag"}
+                Managed VMs
+                <Select
+                  value={scopeType}
+                  disabled={!info}
+                  onChange={(e) =>
+                    setScopeType(e.target.value as "all" | "pool" | "tag")
+                  }
+                >
+                  <option value="all">All VMs the token can see</option>
+                  <option value="pool">VMs in a pool</option>
+                  <option value="tag">VMs with a tag</option>
+                </Select>
+              </label>
+              {scopeType !== "all" && (
+                <label className="field">
+                  {scopeType === "pool" ? "Pool" : "Tag"}
+                  <input
+                    className="input"
+                    required
+                    maxLength={64}
+                    pattern="[A-Za-z0-9_][A-Za-z0-9_.+\-]*"
+                    value={scopeValue}
+                    onChange={(e) => setScopeValue(e.target.value)}
+                    placeholder={scopeType === "pool" ? "students" : "proxdesk"}
+                  />
+                </label>
+              )}
+            </div>
+            <p className="form-note">
+              VMs outside this scope are hidden from the machine list, access
+              settings, Slack, and the console. Their existing grants are kept
+              but have no effect.
+            </p>
+            <div className="flex justify-end">
+              <button className="btn-solid" disabled={!info || !!saving}>
+                {saving === "workspace" && <Spinner />}
+                Save workspace
+              </button>
+            </div>
+          </form>
+        </section>
+        <section className="paper min-w-0 pb-2">
+          <div className="card-head">
+            <h2 className="card-title">Proxmox connection</h2>
+            <button
+              className="btn-soft px-3 py-1.5"
+              onClick={runCheck}
+              disabled={checking}
+            >
+              <RefreshCw
+                size={13}
+                className={checking ? "motion-safe:animate-spin" : ""}
+              />
+              Run check
+            </button>
+          </div>
+          {checks ? (
+            <ul>
+              {checks.map((check, index) => (
+                <li
+                  className="border-rule flex items-start gap-3 border-t px-4 py-3 first:border-t-0 sm:px-6"
+                  key={index}
+                >
+                  <EventIcon>
+                    {check.status === "fail" ? (
+                      <XCircle size={15} />
+                    ) : check.status === "warn" ? (
+                      <TriangleAlert size={15} />
+                    ) : (
+                      <Check size={15} />
+                    )}
+                  </EventIcon>
+                  <p className="text-ink min-w-0 flex-1 pt-1.5 text-sm break-words">
+                    {check.message}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              icon={checking ? <Spinner size={26} /> : <Server size={26} />}
+              title={checking ? "Checking Proxmox…" : "Not checked yet"}
+            />
+          )}
+          {checkedAt && (
+            <p className="border-rule text-ink-muted mt-2 border-t px-4 pt-4 pb-2 text-right text-xs sm:px-6">
+              Checked {time(checkedAt)}
+            </p>
+          )}
+        </section>
+        <section className="paper min-w-0 pb-2 lg:col-span-2">
+          <div className="card-head">
+            <h2 className="card-title">
+              Backups
+              {info && (
+                <span className="chip">{info.backups.files.length}</span>
+              )}
+            </h2>
+            <button
+              className="btn-soft px-3 py-1.5"
+              onClick={backUpNow}
+              disabled={!info || backingUp}
+            >
+              {backingUp ? <Spinner size={13} /> : <DatabaseBackup size={13} />}
+              Back up now
+            </button>
+          </div>
+          <form
+            className="flex flex-col gap-5 px-4 pb-6 sm:px-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void save("backups", { backups });
+            }}
+          >
+            {status?.lastFailure &&
+              (!status.lastSuccess ||
+                status.lastFailure.at > status.lastSuccess.at) && (
+                <div className="notice" role="alert">
+                  <TriangleAlert size={17} />
+                  <span>
+                    Last backup failed {time(status.lastFailure.at)}:{" "}
+                    {status.lastFailure.error}
+                  </span>
+                </div>
+              )}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <label className="field">
+                Scheduled backups
+                <Select
+                  value={backups.enabled ? "on" : "off"}
+                  disabled={!info}
+                  onChange={(e) =>
+                    setBackups({ ...backups, enabled: e.target.value === "on" })
+                  }
+                >
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
+                </Select>
+              </label>
+              <label className="field">
+                Every (hours)
                 <input
+                  className="input"
+                  type="number"
                   required
-                  maxLength={64}
-                  pattern="[A-Za-z0-9_][A-Za-z0-9_.+\-]*"
-                  value={scopeValue}
-                  onChange={(e) => setScopeValue(e.target.value)}
-                  placeholder={scopeType === "pool" ? "students" : "proxdesk"}
+                  min={1}
+                  max={168}
+                  value={backups.intervalHours}
+                  disabled={!info}
+                  onChange={(e) =>
+                    setBackups({
+                      ...backups,
+                      intervalHours: Number(e.target.value),
+                    })
+                  }
                 />
               </label>
-            )}
-          </div>
-          <p className="form-note">
-            VMs outside this scope are hidden from the machine list, access
-            settings, Slack, and the console. Their existing grants are kept but
-            have no effect.
-          </p>
-          <div className="panel-actions">
-            <button className="button primary" disabled={!info || !!saving}>
-              {saving === "workspace" && <Loader2 size={15} className="spin" />}
-              Save workspace
-            </button>
-          </div>
-        </form>
-      </section>
-      <section className="panel settings-panel">
-        <div className="section-heading">
-          <h2>Proxmox connection</h2>
-          <button
-            className="button small"
-            onClick={runCheck}
-            disabled={checking}
-          >
-            <RefreshCw size={13} className={checking ? "spin" : ""} />
-            Run check
-          </button>
-        </div>
-        <div className="events">
-          {checks?.map((check, index) => (
-            <div className="event" key={index}>
-              <span
-                className={`event-icon ${check.status === "fail" ? "event-error" : check.status === "warn" ? "event-warn" : ""}`}
-              >
-                {check.status === "fail" ? (
-                  <XCircle size={16} />
-                ) : check.status === "warn" ? (
-                  <TriangleAlert size={16} />
-                ) : (
-                  <Check size={16} />
-                )}
-              </span>
-              <div className="event-content">
-                <strong>{check.message}</strong>
-              </div>
+              <label className="field">
+                Keep (newest)
+                <input
+                  className="input"
+                  type="number"
+                  required
+                  min={1}
+                  max={1000}
+                  value={backups.retention}
+                  disabled={!info}
+                  onChange={(e) =>
+                    setBackups({
+                      ...backups,
+                      retention: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
             </div>
-          ))}
-          {!checks && (
-            <div className="empty-state">
-              {checking ? (
-                <Loader2 size={26} className="spin" />
-              ) : (
-                <Server size={26} />
-              )}
-              <h3>{checking ? "Checking Proxmox…" : "Not checked yet"}</h3>
+            <dl className="details sm:grid-cols-3">
+              <div>
+                <dt>Directory</dt>
+                <dd className="font-mono">{info?.backups.dir ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Last backup</dt>
+                <dd>{latest ? time(latest.modifiedAt) : "None yet"}</dd>
+              </div>
+              <div>
+                <dt>Next scheduled backup</dt>
+                <dd>
+                  {!info
+                    ? "—"
+                    : !info.backups.nextRunAt
+                      ? "Scheduled backups are off"
+                      : Date.parse(info.backups.nextRunAt) <= Date.now()
+                        ? "Within a minute"
+                        : time(info.backups.nextRunAt)}
+                </dd>
+              </div>
+            </dl>
+            <div className="flex justify-end">
+              <button className="btn-solid" disabled={!info || !!saving}>
+                {saving === "backups" && <Spinner />}
+                Save backup settings
+              </button>
+            </div>
+          </form>
+          {!!info?.backups.files.length && (
+            <div className="relative overflow-x-auto">
+              <table className="data-table" aria-label="Backup files">
+                <thead>
+                  <tr>
+                    <th>File</th>
+                    <th>Size</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {info.backups.files.map((file) => (
+                    <tr key={file.name}>
+                      <td className="font-mono text-xs">{file.name}</td>
+                      <td className="text-ink-subtle whitespace-nowrap">
+                        {bytes(file.size)}
+                      </td>
+                      <td className="text-ink-subtle whitespace-nowrap">
+                        {time(file.modifiedAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-        </div>
-        {checkedAt && (
-          <div className="table-footer">
-            <span />
-            <span>
-              <span className="tiny-dot" />
-              Checked {time(checkedAt)}
-            </span>
-          </div>
-        )}
-      </section>
-      <section className="panel settings-panel">
-        <div className="section-heading">
-          <h2>
-            Backups
-            {info && (
-              <span className="count-label">{info.backups.files.length}</span>
-            )}
-          </h2>
-          <button
-            className="button small"
-            onClick={backUpNow}
-            disabled={!info || backingUp}
-          >
-            {backingUp ? (
-              <Loader2 size={13} className="spin" />
-            ) : (
-              <DatabaseBackup size={13} />
-            )}
-            Back up now
-          </button>
-        </div>
-        <form
-          className="panel-body"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void save("backups", { backups });
-          }}
-        >
-          {status?.lastFailure &&
-            (!status.lastSuccess ||
-              status.lastFailure.at > status.lastSuccess.at) && (
-              <div className="form-error" role="alert">
-                Last backup failed {time(status.lastFailure.at)}:{" "}
-                {status.lastFailure.error}
-              </div>
-            )}
-          <div className="three-fields">
-            <label className="field">
-              Scheduled backups
-              <select
-                value={backups.enabled ? "on" : "off"}
-                disabled={!info}
-                onChange={(e) =>
-                  setBackups({ ...backups, enabled: e.target.value === "on" })
-                }
-              >
-                <option value="on">On</option>
-                <option value="off">Off</option>
-              </select>
-            </label>
-            <label className="field">
-              Every (hours)
-              <input
-                type="number"
-                required
-                min={1}
-                max={168}
-                value={backups.intervalHours}
-                disabled={!info}
-                onChange={(e) =>
-                  setBackups({ ...backups, intervalHours: Number(e.target.value) })
-                }
-              />
-            </label>
-            <label className="field">
-              Keep (newest)
-              <input
-                type="number"
-                required
-                min={1}
-                max={1000}
-                value={backups.retention}
-                disabled={!info}
-                onChange={(e) =>
-                  setBackups({ ...backups, retention: Number(e.target.value) })
-                }
-              />
-            </label>
-          </div>
-          <dl className="details">
-            <div>
-              <dt>Directory</dt>
-              <dd>{info?.backups.dir ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Last backup</dt>
-              <dd>{latest ? time(latest.modifiedAt) : "None yet"}</dd>
-            </div>
-            <div>
-              <dt>Next scheduled backup</dt>
-              <dd>
-                {!info
-                  ? "—"
-                  : !info.backups.nextRunAt
-                    ? "Scheduled backups are off"
-                    : Date.parse(info.backups.nextRunAt) <= Date.now()
-                      ? "Within a minute"
-                      : time(info.backups.nextRunAt)}
-              </dd>
-            </div>
-          </dl>
-          <div className="panel-actions">
-            <button className="button primary" disabled={!info || !!saving}>
-              {saving === "backups" && <Loader2 size={15} className="spin" />}
-              Save backup settings
-            </button>
-          </div>
-        </form>
-        {!!info?.backups.files.length && (
-          <div className="table-scroll">
-            <table className="members-table backup-table">
-              <thead>
-                <tr>
-                  <th>File</th>
-                  <th>Size</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {info.backups.files.map((file) => (
-                  <tr key={file.name}>
-                    <td>{file.name}</td>
-                    <td className="muted">{bytes(file.size)}</td>
-                    <td className="muted">{time(file.modifiedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-      <div className="page-footnote">
-        <Shield size={14} />
-        Backups contain password hashes, so they cannot be downloaded here.
-        Copy them from the directory above on the server.
+        </section>
       </div>
+      <p className="footnote">
+        <Shield size={14} className="mt-0.5 shrink-0" />
+        Backups contain password hashes, so they cannot be downloaded here. Copy
+        them from the directory above on the server.
+      </p>
     </>
+  );
+}
+function Select({
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className="select">
+      <select className="input" {...props}>
+        {children}
+      </select>
+      <ChevronDown size={14} />
+    </span>
   );
 }
 
@@ -2413,111 +2531,96 @@ function SignIn({
     }
   }
   return (
-    <div className="login-page">
-      <div className="login-brand brand">
-        <span className="brand-mark">
-          <Layers3 size={22} />
-        </span>
-        Prox<span>desk</span>
-      </div>
-      <div className="login-card">
-        <div className="login-icon">
-          <Server size={26} />
+    <AuthPage icon={<Server size={20} />} title="Your workspace">
+      <p className="page-subtitle">
+        {returnTo
+          ? "Sign in to link your chat account."
+          : "Sign in to access your virtual machines."}
+      </p>
+      {error && (
+        <div className="notice mt-5" role="alert">
+          <XCircle size={17} />
+          {error}
         </div>
-        <h1>Your workspace</h1>
-        <p className="login-description">
-          {returnTo
-            ? "Sign in to link your chat account."
-            : "Sign in to access your virtual machines."}
-        </p>
-        {error && (
-          <div className="form-error" role="alert">
-            {error}
-          </div>
-        )}
-        {demo && (
-          <div className="demo-login">
-            <div className="demo-label">
-              <span className="demo-pill">Demo environment</span>
-              <span>No server connected</span>
-            </div>
-            <button
-              className="button primary"
-              disabled={busy}
-              onClick={() => submit(undefined, "admin")}
-            >
-              <Shield size={16} />
-              Explore as administrator
-              <ArrowRight size={16} />
-            </button>
-            <button
-              className="button"
-              disabled={busy}
-              onClick={() => submit(undefined, "member")}
-            >
-              <Users size={16} />
-              Explore as member
-              <ArrowRight size={16} />
-            </button>
-            <div className="login-divider">
-              <span>or sign in with an account</span>
-            </div>
-          </div>
-        )}
-        {oidc && (
-          <>
-            <a
-              className="button sso-button"
-              href={`/api/auth/oidc${returnTo ? `?next=${encodeURIComponent(returnTo)}` : ""}`}
-            >
-              Continue with SSO
-              <ArrowUpRight size={16} />
-            </a>
-            <div className="login-divider">
-              <span>or use a local account</span>
-            </div>
-          </>
-        )}
-        <form onSubmit={submit}>
-          <label className="field">
-            Email address
-            <input
-              autoComplete="username"
-              type="email"
-              placeholder="you@example.com"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            Password
-            <input
-              autoComplete="current-password"
-              type="password"
-              placeholder="Enter your password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              maxLength={256}
-            />
-          </label>
-          <button className="button primary login-submit" disabled={busy}>
-            {busy ? (
-              <Loader2 size={16} className="spin" />
-            ) : (
-              <ArrowRight size={16} />
-            )}
-            Sign in
+      )}
+      {demo && (
+        <div className="mt-6 flex flex-col gap-2">
+          <p className="text-ink-muted mb-1 flex items-center gap-2 text-sm">
+            <span className="chip">Demo environment</span>
+            No server connected
+          </p>
+          <button
+            className="btn-solid w-full"
+            disabled={busy}
+            onClick={() => submit(undefined, "admin")}
+          >
+            <Shield size={16} />
+            Explore as administrator
+            <ArrowRight size={16} />
           </button>
-        </form>
-        <div className="login-help">
-          <Shield size={14} />
-          VM access is assigned by your administrator.
+          <button
+            className="btn-glass w-full justify-center"
+            disabled={busy}
+            onClick={() => submit(undefined, "member")}
+          >
+            <Users size={16} />
+            Explore as member
+            <ArrowRight size={16} />
+          </button>
+          <p className="divider mt-4">or sign in with an account</p>
         </div>
-      </div>
-      <div className="login-footer">Proxdesk · VM self-service</div>
-    </div>
+      )}
+      {oidc && (
+        <div className={`flex flex-col gap-4 ${demo ? "mt-4" : "mt-6"}`}>
+          <a
+            className="btn-glass w-full justify-center"
+            href={`/api/auth/oidc${returnTo ? `?next=${encodeURIComponent(returnTo)}` : ""}`}
+          >
+            Continue with SSO
+            <ArrowUpRight size={16} />
+          </a>
+          <p className="divider">or use a local account</p>
+        </div>
+      )}
+      <form
+        onSubmit={submit}
+        className={`flex flex-col gap-4 ${demo || oidc ? "mt-4" : "mt-6"}`}
+      >
+        <label className="field">
+          Email address
+          <input
+            className="input"
+            autoComplete="username"
+            type="email"
+            placeholder="you@example.com"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </label>
+        <label className="field">
+          Password
+          <input
+            className="input"
+            autoComplete="current-password"
+            type="password"
+            placeholder="Enter your password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            maxLength={256}
+          />
+        </label>
+        <button className="btn-solid mt-1 w-full" disabled={busy}>
+          {busy ? <Spinner size={16} /> : <ArrowRight size={16} />}
+          Sign in
+        </button>
+      </form>
+      <p className="text-ink-muted mt-5 flex items-center gap-2 text-xs">
+        <Shield size={14} />
+        VM access is assigned by your administrator.
+      </p>
+    </AuthPage>
   );
 }
 
@@ -2556,15 +2659,17 @@ function AddMember({
   }
   return (
     <Modal title="Add member" onClose={onClose}>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} className="flex flex-col gap-4">
         {error && (
-          <div className="form-error" role="alert">
+          <div className="notice" role="alert">
+            <XCircle size={17} />
             {error}
           </div>
         )}
         <label className="field">
           Full name
           <input
+            className="input"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -2575,6 +2680,7 @@ function AddMember({
         <label className="field">
           Email address
           <input
+            className="input"
             required
             type="email"
             value={email}
@@ -2585,23 +2691,28 @@ function AddMember({
         </label>
         <label className="field">
           Role
-          <select
+          <Select
             value={role}
             onChange={(e) => setRole(e.target.value as "admin" | "member")}
           >
             <option value="member">Member</option>
             <option value="admin">Administrator</option>
-          </select>
-          <small>
+          </Select>
+          <span className="field-hint">
             {role === "admin"
               ? "Administrators can control every managed VM and change access."
               : "Members can access only the VMs assigned to them."}
-          </small>
+          </span>
         </label>
         <label className="field">
-          Initial password
-          {oidc && <span className="muted">Optional for SSO accounts</span>}
+          <span>
+            Initial password{" "}
+            {oidc && (
+              <span className="field-hint">Optional for SSO accounts</span>
+            )}
+          </span>
           <input
+            className="input"
             type="password"
             autoComplete="new-password"
             required={!oidc}
@@ -2616,19 +2727,19 @@ function AddMember({
           Share the initial password privately. This does not send an invitation
           email.
         </p>
-        <div className="modal-footer">
+        <DialogFooter>
           <button
             type="button"
-            className="button"
+            className="btn-soft"
             onClick={onClose}
             disabled={busy}
           >
             Cancel
           </button>
-          <button className="button primary" disabled={busy}>
-            {busy && <Loader2 size={15} className="spin" />}Add member
+          <button className="btn-solid" disabled={busy}>
+            {busy && <Spinner />}Add member
           </button>
-        </div>
+        </DialogFooter>
       </form>
     </Modal>
   );
@@ -2734,53 +2845,47 @@ function MemberAccess({
     return (
       <Modal title={`Delete ${member.name}?`} onClose={onClose}>
         {error && (
-          <div className="form-error" role="alert">
+          <div className="notice" role="alert">
+            <XCircle size={17} />
             {error}
           </div>
         )}
-        <div className="confirm-icon danger">
-          <Trash2 size={25} />
-        </div>
+        <DialogIcon>
+          <Trash2 size={24} />
+        </DialogIcon>
         <p className="dialog-copy">
           This removes the account, its VM access, its sessions, and its linked
           chat accounts. The activity log keeps its past events. This cannot be
           undone.
         </p>
-        <div className="modal-footer">
+        <DialogFooter>
           <button
-            className="button"
+            className="btn-soft"
             onClick={() => setConfirmDelete(false)}
             disabled={busy}
           >
             Cancel
           </button>
-          <button className="button destructive" onClick={remove} disabled={busy}>
-            {busy && <Loader2 size={15} className="spin" />}Delete member
+          <button className="btn-solid" onClick={remove} disabled={busy}>
+            {busy && <Spinner />}Delete member
           </button>
-        </div>
+        </DialogFooter>
       </Modal>
     );
   return (
     <Modal title={`Access · ${member.name}`} onClose={onClose} wide>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} className="flex flex-col gap-4">
         {error && (
-          <div className="form-error" role="alert">
+          <div className="notice" role="alert">
+            <XCircle size={17} />
             {error}
           </div>
         )}
-        <div className="member-summary">
-          <span className="avatar">{initials(member.name)}</span>
-          <div>
-            <strong>{member.name}</strong>
-            <small>
-              {member.email ?? <span className="chat-badge">Chat only</span>}
-            </small>
-          </div>
-        </div>
-        <div className="two-fields">
+        <Person name={member.name} detail={member.email} />
+        <div className="grid gap-4 sm:grid-cols-2">
           <label className="field">
             Role
-            <select
+            <Select
               value={role}
               onChange={(e) => setRole(e.target.value as "admin" | "member")}
             >
@@ -2788,22 +2893,22 @@ function MemberAccess({
               {(canBeAdmin || member.role === "admin") && (
                 <option value="admin">Administrator</option>
               )}
-            </select>
+            </Select>
             {!canBeAdmin && (
-              <span className="muted">
+              <span className="field-hint">
                 Administrators need an email and a way to sign in
               </span>
             )}
           </label>
           <label className="field">
             Account status
-            <select
+            <Select
               value={enabled ? "enabled" : "disabled"}
               onChange={(e) => setEnabled(e.target.value === "enabled")}
             >
               <option value="enabled">Active</option>
               <option value="disabled">Disabled</option>
-            </select>
+            </Select>
           </label>
         </div>
         {currentUser.id === member.id && (
@@ -2812,31 +2917,35 @@ function MemberAccess({
           </p>
         )}
         {role === "admin" ? (
-          <div className="inline-note">
+          <div className="notice">
             <Shield size={17} />
             Administrators have all permissions on every managed VM.
           </div>
         ) : (
           <>
-            <h3 className="form-section-heading">Machine permissions</h3>
-            <div className="permission-list">
+            <h3 className="font-title text-ink-muted mt-2 text-xs font-semibold tracking-wide uppercase">
+              Machine permissions
+            </h3>
+            <div className="flex flex-col gap-2">
               {vms.map((vm) => (
-                <div className="permission-machine" key={vm.id}>
-                  <div className="row">
-                    <strong>
-                      <Monitor size={15} />
+                <fieldset
+                  className="rounded-2xl border border-black/5 px-4 pt-3 pb-4"
+                  key={vm.id}
+                >
+                  <legend className="sr-only">{vm.name}</legend>
+                  <div
+                    className="flex items-center justify-between gap-3"
+                    aria-hidden="true"
+                  >
+                    <span className="font-title text-ink flex items-center gap-2 text-sm font-bold">
+                      <Monitor size={15} className="text-ink-subtle" />
                       {vm.name}
-                    </strong>
-                    <span className="muted">VM {vm.id}</span>
+                    </span>
+                    <span className="text-ink-muted text-xs">VM {vm.id}</span>
                   </div>
-                  <div className="permission-checks">
+                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
                     {permissions.map((permission) => (
-                      <label
-                        key={permission}
-                        className={
-                          permission === "reset" ? "reset-permission" : ""
-                        }
-                      >
+                      <label key={permission} className="check">
                         <input
                           type="checkbox"
                           checked={(access[vm.id] || []).includes(permission)}
@@ -2846,7 +2955,7 @@ function MemberAccess({
                       </label>
                     ))}
                   </div>
-                </div>
+                </fieldset>
               ))}
             </div>
             <p className="form-note">
@@ -2857,8 +2966,11 @@ function MemberAccess({
         )}
         {member.email === null && (
           <label className="field">
-            Email address <span className="muted">Optional</span>
+            <span>
+              Email address <span className="field-hint">Optional</span>
+            </span>
             <input
+              className="input"
               type="email"
               autoComplete="off"
               maxLength={254}
@@ -2866,16 +2978,19 @@ function MemberAccess({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Leave empty to keep this member chat-only"
             />
-            <small>
+            <span className="field-hint">
               Chat-only members use the chat bot and cannot sign in. An email
               with a password, or with SSO, lets them sign in to the web.
-            </small>
+            </span>
           </label>
         )}
         <label className="field">
-          {member.email === null ? "Initial password" : "Reset password"}{" "}
-          <span className="muted">Optional</span>
+          <span>
+            {member.email === null ? "Initial password" : "Reset password"}{" "}
+            <span className="field-hint">Optional</span>
+          </span>
           <input
+            className="input"
             type="password"
             autoComplete="new-password"
             minLength={12}
@@ -2884,12 +2999,14 @@ function MemberAccess({
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Leave empty to keep the current password"
           />
-          <small>A password reset signs this member out of all sessions.</small>
+          <span className="field-hint">
+            A password reset signs this member out of all sessions.
+          </span>
         </label>
-        <div className="modal-footer">
+        <DialogFooter>
           {currentUser.id !== member.id && (
             <button
-              className="button danger-text footer-start"
+              className="btn-soft sm:mr-auto"
               type="button"
               onClick={() => setConfirmDelete(true)}
               disabled={busy}
@@ -2899,17 +3016,17 @@ function MemberAccess({
             </button>
           )}
           <button
-            className="button"
+            className="btn-soft"
             type="button"
             onClick={onClose}
             disabled={busy}
           >
             Cancel
           </button>
-          <button className="button primary" disabled={busy}>
-            {busy && <Loader2 size={15} className="spin" />}Save access
+          <button className="btn-solid" disabled={busy}>
+            {busy && <Spinner />}Save access
           </button>
-        </div>
+        </DialogFooter>
       </form>
     </Modal>
   );
@@ -2947,15 +3064,17 @@ function ChangePassword({
   }
   return (
     <Modal title="Change password" onClose={onClose}>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} className="flex flex-col gap-4">
         {error && (
-          <div className="form-error" role="alert">
+          <div className="notice" role="alert">
+            <XCircle size={17} />
             {error}
           </div>
         )}
         <label className="field">
           Current password
           <input
+            className="input"
             type="password"
             autoComplete="current-password"
             required
@@ -2967,6 +3086,7 @@ function ChangePassword({
         <label className="field">
           New password
           <input
+            className="input"
             type="password"
             autoComplete="new-password"
             required
@@ -2980,6 +3100,7 @@ function ChangePassword({
         <label className="field">
           Confirm new password
           <input
+            className="input"
             type="password"
             autoComplete="new-password"
             required
@@ -2993,19 +3114,19 @@ function ChangePassword({
           This changes your local account password and signs out other sessions.
           SSO-only accounts use their identity provider to manage passwords.
         </p>
-        <div className="modal-footer">
+        <DialogFooter>
           <button
-            className="button"
+            className="btn-soft"
             type="button"
             onClick={onClose}
             disabled={busy}
           >
             Cancel
           </button>
-          <button className="button primary" disabled={busy}>
-            {busy && <Loader2 size={15} className="spin" />}Change password
+          <button className="btn-solid" disabled={busy}>
+            {busy && <Spinner />}Change password
           </button>
-        </div>
+        </DialogFooter>
       </form>
     </Modal>
   );
@@ -3057,7 +3178,7 @@ function ConsoleModal({ vm, onClose }: { vm: VM; onClose: () => void }) {
         rfb.current = client;
         client.scaleViewport = true;
         client.resizeSession = false;
-        client.background = "#101318";
+        client.background = getComputedStyle(target.current).backgroundColor;
         client.addEventListener("connect", () => {
           if (!cancelled) {
             setStatus("Connected");
@@ -3104,21 +3225,21 @@ function ConsoleModal({ vm, onClose }: { vm: VM; onClose: () => void }) {
   }, [vm.id, retry]);
   return (
     <Modal title={`${vm.name} · Console`} onClose={onClose} wide>
-      <div className="console-toolbar">
-        <span>
-          <i className={connected ? "tiny-dot" : "tiny-dot muted-dot"} />
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-ink-soft inline-flex items-center gap-2 text-sm">
+          <i className={`state-dot ${connected ? "state-on" : "state-off"}`} />
           {status}
         </span>
-        <div>
+        <div className="flex items-center gap-1">
           <button
-            className="button small"
+            className="btn-soft px-3 py-1.5"
             disabled={!connected}
             onClick={() => rfb.current?.sendCtrlAltDel()}
           >
             Ctrl · Alt · Del
           </button>
           <button
-            className="icon-button"
+            className="btn-icon"
             title="Reconnect console"
             aria-label="Reconnect console"
             disabled={status === "Connecting"}
@@ -3129,36 +3250,42 @@ function ConsoleModal({ vm, onClose }: { vm: VM; onClose: () => void }) {
         </div>
       </div>
       {error && (
-        <div className="form-error" role="alert">
+        <div className="notice mb-3" role="alert">
+          <XCircle size={17} />
           {error}
         </div>
       )}
-      <div className="console-viewport" ref={target}>
+      <div
+        className="console-screen bg-ink text-on-ink relative aspect-video overflow-hidden rounded-lg"
+        ref={target}
+      >
         {demo && (
-          <div className="console-placeholder">
-            <SquareTerminal size={38} />
-            <h3>No live console in demo mode</h3>
-            <p>
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+            <SquareTerminal size={34} className="opacity-60" />
+            <h3 className="font-title text-lg font-bold">
+              No live console in demo mode
+            </h3>
+            <p className="font-article text-sm opacity-80">
               Connect your Proxmox server to use the VM’s display and keyboard
               here.
             </p>
-            <span>
+            <span className="font-mono text-xs opacity-60">
               VM {vm.id} · {vm.node}
             </span>
           </div>
         )}
         {status === "Connecting" && (
-          <div className="console-connecting">
-            <Loader2 className="spin" size={25} />
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm opacity-80">
+            <Spinner size={24} />
             <span>Establishing secure console connection…</span>
           </div>
         )}
       </div>
-      <div className="console-footer">
-        <Shield size={13} />
+      <p className="text-ink-muted mt-3 flex items-start gap-2 text-xs leading-relaxed">
+        <Shield size={13} className="mt-0.5 shrink-0" />
         Use your VM’s operating-system credentials to log in. Closing this
         window leaves the VM running.
-      </div>
+      </p>
     </Modal>
   );
 }

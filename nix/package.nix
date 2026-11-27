@@ -28,6 +28,8 @@ buildNpmPackage rec {
       ../next-env.d.ts
       ../package.json
       ../package-lock.json
+      ../postcss.config.mjs
+      ../styles
       ../tsconfig.json
     ];
   };
